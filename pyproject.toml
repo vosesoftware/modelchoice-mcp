@@ -12,6 +12,9 @@ dependencies = [
     "xlwings>=0.30",
 ]
 
+[project.scripts]
+modelchoice-mcp = "modelchoice_mcp.__main__:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",

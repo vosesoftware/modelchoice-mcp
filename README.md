@@ -4,7 +4,17 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.1` — Phase 0 (read-only) spike.** The core read path is proven end to end. Building/analysis tools are on the roadmap below.
+> **Status: `0.0.1` — Phase 1 MCP server (read-only).** Three tools (`list_trees`, `get_tree`, `roll_up`) over a proven read path. Building/analysis tools are on the roadmap below.
+
+## Tools
+
+| Tool | What it does |
+|---|---|
+| `list_trees` | List the decision trees in a workbook with node-type counts. |
+| `get_tree` | Full structure of one tree — decision / chance / terminal nodes, branches, probabilities, values. |
+| `roll_up` | Roll the tree back to its expected values and **optimal policy** — the decision recommendation, in plain English. |
+
+Run it: `uv run python -m modelchoice_mcp` (stdio), or wire `modelchoice-mcp` into Claude Desktop like any MCP server.
 
 ## How it works
 
@@ -17,9 +27,11 @@ The Python roller is validated against ModelChoice's own authoritative C# test (
 
 ## Roadmap
 
-- **Phase 0 (done):** read-only — list trees, read structure, roll back to EV + optimal policy, cross-check against the `MC_V_<id>` named ranges.
-- **Phase 1:** drive analyses. ModelChoice's analyses (sensitivity, EVPI, EVII, strategy table, robustness) are currently UI/modal-dialog only; the clean path — since we own the source — is to add headless `[ExcelCommand]` entry points mirroring the existing `MC_RiskProfile_Auto`, then invoke + read them via `Application.Run`.
-- **Phase 2:** build/edit trees — write the model JSON into `_MC_Store` and trigger a re-render.
+- **Phase 0 (done):** the read + rollback engine — parse `_MC_Store`, reconstruct each tree, roll back to EV + optimal policy. Validated against ModelChoice's own C# rollback test.
+- **Phase 1 (done):** the MCP server — `list_trees`, `get_tree`, `roll_up`, proven live against a real workbook.
+- **Phase 1b:** cross-check rolled-back EVs against the `MC_V_<id>` named ranges; packaging + CI + PyPI; Claude Desktop wiring docs.
+- **Phase 2:** drive analyses. ModelChoice's analyses (sensitivity, EVPI, EVII, strategy table, robustness) are currently UI/modal-dialog only; the clean path — since we own the source — is to add headless `[ExcelCommand]` entry points mirroring the existing `MC_RiskProfile_Auto`, then invoke + read them via `Application.Run`.
+- **Phase 3:** build/edit trees — write the model JSON into `_MC_Store` and trigger a re-render.
 
 ## Architecture
 
