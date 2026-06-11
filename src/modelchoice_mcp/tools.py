@@ -7,7 +7,7 @@ a fake with ``set_bridge_for_testing`` to avoid touching COM.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import Field
 
@@ -16,9 +16,11 @@ from modelchoice_mcp.schemas import (
     AnalysisRun,
     BranchView,
     EvpiResult,
+    KeyValue,
     NodeDiff,
     NodeResultView,
     NodeView,
+    RobustnessSummary,
     RollbackVerification,
     RollupResponse,
     SheetData,
@@ -334,6 +336,67 @@ def run_analysis(
     )
 
 
+def _key_values(rows: list[list[Any]]) -> list[KeyValue]:
+    """Extract label→value pairs from a two-column report sheet: a row
+    contributes a pair when its first cell is a non-empty string label and
+    a later cell holds the value."""
+    pairs: list[KeyValue] = []
+    for row in rows:
+        if not row:
+            continue
+        label = row[0]
+        if not isinstance(label, str) or not label.strip():
+            continue
+        value = next((c for c in row[1:] if c is not None and c != ""), None)
+        if value is not None:
+            pairs.append(KeyValue(label=label.strip(), value=value))
+    return pairs
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Run the robustness ('break the decision') analysis and "
+        "return a structured read — the verdict, robustness score, and the "
+        "minimum change to an input that flips the optimal decision, plus all "
+        "label→value pairs from the verdict sheet. Higher distance / score = "
+        "more robust. Requires the ModelChoice add-in loaded with a tree open."
+    )
+)
+def run_robustness(workbook_name: str | None = None) -> RobustnessSummary:
+    bridge = get_bridge()
+    run = bridge.run_analysis("MC_Robustness_Auto", workbook_name)
+    all_sheets = run.get("sheets", [])
+    rb_sheets = [s for s in all_sheets if s.startswith("MC_RB_")]
+    rows: list[list[Any]] = []
+    if "MC_RB_Verdict" in all_sheets:
+        rows = bridge.read_sheet("MC_RB_Verdict", workbook_name)
+    pairs = _key_values(rows)
+
+    def _find(*needles: str) -> KeyValue | None:
+        for p in pairs:
+            low = p.label.lower()
+            if any(n in low for n in needles):
+                return p
+        return None
+
+    verdict = _find("verdict")
+    score = _find("score")
+    dist = _find("distance", "flip")
+    dist_val = dist.value if dist and isinstance(dist.value, (int, float)) else None
+
+    return RobustnessSummary(
+        verdict=str(verdict.value) if verdict else None,
+        robustness_score=str(score.value) if score else None,
+        min_distance=float(dist_val) if dist_val is not None else None,
+        details=pairs,
+        sheets=rb_sheets,
+        note=(
+            "Read from the robustness report. Other sheets (vulnerability, "
+            "boundary, threats) are available via read_sheet."
+        ),
+    )
+
+
 @mcp.tool(
     description=(
         "ModelChoice: Read a worksheet's used range (capped) as rows of cell "
@@ -369,6 +432,7 @@ __all__ = [
     "roll_up",
     "run_analysis",
     "run_evpi",
+    "run_robustness",
     "set_bridge_for_testing",
     "verify_rollback",
 ]

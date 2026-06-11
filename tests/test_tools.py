@@ -66,7 +66,12 @@ class _FakeBridge:
 
     def read_sheet(self, sheet_name: str, workbook: str | None = None,
                    max_rows: int = 200, max_cols: int = 20) -> list[list[object]]:
-        return [["Verdict", "Robust"], ["Distance", 0.42]]
+        return [
+            ["Robustness verdict", "Robust"],
+            ["Robustness Score", "82 / 100"],
+            ["Min distance to flip", 0.42],
+            [None, None],
+        ]
 
 
 @pytest.fixture
@@ -183,6 +188,19 @@ def test_run_analysis_covers_all_known(bridge: _FakeBridge) -> None:
 
 def test_read_sheet(bridge: _FakeBridge) -> None:
     out = tools.read_sheet("MC_RB_Verdict")
-    assert out.sheet == "MC_RB_Verdict" and out.row_count == 2
-    assert out.rows[1] == ["Distance", 0.42]
+    assert out.sheet == "MC_RB_Verdict" and out.row_count == 4
+    assert out.rows[2] == ["Min distance to flip", 0.42]
     assert out.truncated is False
+
+
+def test_run_robustness_extracts_headline(bridge: _FakeBridge) -> None:
+    out = tools.run_robustness()
+    assert out.verdict == "Robust"
+    assert out.robustness_score == "82 / 100"
+    assert out.min_distance == 0.42
+    # All non-empty label rows are captured as details.
+    assert {kv.label for kv in out.details} == {
+        "Robustness verdict", "Robustness Score", "Min distance to flip"
+    }
+    assert out.sheets == ["MC_RB_Verdict"]
+    assert bridge.last_command == "MC_Robustness_Auto"

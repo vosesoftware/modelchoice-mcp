@@ -101,6 +101,32 @@ class SheetData(BaseModel):
     truncated: bool = Field(description="True if the sheet had more rows/cols than returned.")
 
 
+class KeyValue(BaseModel):
+    label: str
+    value: Any
+
+
+class RobustnessSummary(BaseModel):
+    """Structured read of ModelChoice's robustness ('break the decision')
+    analysis — how much inputs must change to flip the optimal choice."""
+
+    verdict: str | None = Field(
+        default=None, description="Overall robustness verdict (e.g. 'Robust', 'Fragile')."
+    )
+    robustness_score: str | None = Field(
+        default=None, description="Score out of 100, if reported."
+    )
+    min_distance: float | None = Field(
+        default=None,
+        description="Smallest normalized change to an input that flips the decision.",
+    )
+    details: list[KeyValue] = Field(
+        description="All label→value pairs read from the verdict sheet."
+    )
+    sheets: list[str] = Field(description="Robustness report sheets produced (MC_RB_*).")
+    note: str
+
+
 class EvpiResult(BaseModel):
     """Expected Value of Perfect Information for the active tree, produced
     by ModelChoice's headless MC_EVPI_Auto command."""

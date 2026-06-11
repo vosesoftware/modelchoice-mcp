@@ -16,6 +16,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `verify_rollback` | Cross-check our rollback against the `MC_V_<id>` cells ModelChoice itself wrote — a correctness guarantee when the tree has been rendered. |
 | `run_evpi` | Expected Value of Perfect Information for the active tree — the most you'd pay for perfect information before deciding. Drives ModelChoice's headless `MC_EVPI_Auto`. |
 | `run_analysis` | Run any decision-analysis (`robustness`, `sensitivity`, `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, `risk_profile`, `evpi`) and report the result sheets it produced. |
+| `run_robustness` | Run the robustness ("break the decision") analysis and return a structured read — verdict, score, and the minimum input change that flips the decision. |
 | `read_sheet` | Read a result sheet's cells back (numbers / text), e.g. the robustness verdict or a sensitivity report. |
 
 Run it: `uv run python -m modelchoice_mcp` (stdio), or wire `modelchoice-mcp` into Claude Desktop like any MCP server.

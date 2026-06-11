@@ -1,6 +1,6 @@
 [project]
 name = "modelchoice-mcp"
-version = "0.0.3"
+version = "0.0.4"
 description = "An open Model Context Protocol server for Vose Software's ModelChoice decision-tree add-in for Excel."
 readme = "README.md"
 requires-python = ">=3.11"
