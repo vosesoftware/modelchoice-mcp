@@ -7,6 +7,7 @@ a fake with ``set_bridge_for_testing`` to avoid touching COM.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Annotated, Any
 
 from pydantic import Field
@@ -16,6 +17,7 @@ from modelchoice_mcp.schemas import (
     AnalysisRun,
     BranchView,
     BuildTreeResult,
+    EditOp,
     EvpiResult,
     KeyValue,
     NodeDiff,
@@ -141,6 +143,122 @@ def build_tree(
     return BuildTreeResult(
         written=written,
         sheet=sheet,
+        node_count=len(parsed.nodes),
+        expected_value=r.expected_value,
+        optimal_path=r.optimal_path,
+        recommendation=rec,
+        model_json=model_json,
+    )
+
+
+def _apply_edits(tree: DecisionTree, edits: list[EditOp]) -> DecisionTree:
+    """Return a new tree with the edits applied. Frozen dataclasses are
+    rebuilt via dataclasses.replace; unknown ops or missing targets raise
+    TreeParseError."""
+    nodes = dict(tree.nodes)
+    maximize = tree.maximize
+    model_name = tree.model_name
+
+    for e in edits:
+        op = e.op.lower()
+        if op == "set_objective":
+            if e.maximize is None:
+                raise TreeParseError("set_objective needs `maximize`.")
+            maximize = e.maximize
+            continue
+
+        if not e.node_id or e.node_id not in nodes:
+            raise TreeParseError(f"edit {op!r}: no node {e.node_id!r}.")
+        node = nodes[e.node_id]
+
+        if op == "rename_node":
+            if not e.name:
+                raise TreeParseError("rename_node needs `name`.")
+            nodes[e.node_id] = dataclasses.replace(node, name=e.name)
+        elif op == "set_terminal_value":
+            if node.kind != "terminal":
+                raise TreeParseError(f"{e.node_id!r} is not a terminal node.")
+            if e.value is None:
+                raise TreeParseError("set_terminal_value needs `value`.")
+            nodes[e.node_id] = dataclasses.replace(node, value=e.value)
+        elif op in ("set_probability", "set_branch_value", "rename_branch"):
+            found = False
+            new_branches = []
+            for b in node.branches:
+                if b.name == e.branch_name:
+                    found = True
+                    if op == "set_probability":
+                        b = dataclasses.replace(b, probability=e.value)
+                    elif op == "set_branch_value":
+                        b = dataclasses.replace(b, value=e.value or 0.0)
+                    else:  # rename_branch
+                        if not e.name:
+                            raise TreeParseError("rename_branch needs `name`.")
+                        b = dataclasses.replace(b, name=e.name)
+                new_branches.append(b)
+            if not found:
+                raise TreeParseError(
+                    f"node {e.node_id!r} has no branch named {e.branch_name!r}."
+                )
+            nodes[e.node_id] = dataclasses.replace(node, branches=new_branches)
+        else:
+            raise TreeParseError(f"unknown edit op {e.op!r}.")
+
+    return dataclasses.replace(
+        tree, nodes=nodes, maximize=maximize, model_name=model_name
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Edit an existing decision tree in place — change "
+        "probabilities, branch cash flows, terminal payoffs, node/branch "
+        "labels, or the maximize/minimize objective — then re-roll it. Pass "
+        "`edits` as a list of operations ('set_probability', 'set_branch_value', "
+        "'set_terminal_value', 'rename_node', 'rename_branch', 'set_objective'). "
+        "Reads the named tree, applies the edits, validates by rolling back, and "
+        "returns the new EV + optimal policy. dry_run=True (default) previews; "
+        "dry_run=False writes and re-renders. The 'tweak it by talking' path."
+    )
+)
+def edit_tree(
+    edits: list[EditOp],
+    tree_name: Annotated[
+        str | None, Field(description="Tree sheet name. Omit for the first tree.")
+    ] = None,
+    dry_run: bool = True,
+    workbook_name: str | None = None,
+) -> BuildTreeResult:
+    bridge = get_bridge()
+    trees = bridge.list_trees(workbook_name)
+    if tree_name is None:
+        tree_name = next(iter(trees))
+    if tree_name not in trees:
+        raise TreeParseError(f"no tree {tree_name!r}; available: {', '.join(trees)}.")
+
+    edited = _apply_edits(parse_model(trees[tree_name]), edits)
+    model_json = to_model_json(edited)
+    parsed = parse_model(model_json)
+    r = rollup(parsed)
+
+    direction = "maximize" if edited.maximize else "minimize"
+    if r.optimal_path:
+        rec = (
+            f"After edits, optimal decision ({direction} EV): take "
+            f"{' → '.join(r.optimal_path)}. Expected value {r.expected_value:,.2f}."
+        )
+    else:
+        rec = f"After edits, expected value {r.expected_value:,.2f} ({direction})."
+
+    written = False
+    if not dry_run:
+        bridge.write_tree(model_json, sheet_name=tree_name, workbook=workbook_name)
+        bridge.render_tree(tree_name, workbook_name)
+        written = True
+
+    return BuildTreeResult(
+        written=written,
+        sheet=tree_name if written else None,
         node_count=len(parsed.nodes),
         expected_value=r.expected_value,
         optimal_path=r.optimal_path,
@@ -559,6 +677,7 @@ def read_sheet(
 
 __all__ = [
     "build_tree",
+    "edit_tree",
     "get_bridge",
     "get_tree",
     "list_trees",

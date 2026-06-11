@@ -116,6 +116,30 @@ class TreeSpec(BaseModel):
     nodes: list[NodeSpec] = Field(description="All nodes in the tree.")
 
 
+class EditOp(BaseModel):
+    """A single targeted edit to an existing tree. `op` selects the
+    change; the other fields are the target/new value for that op."""
+
+    op: str = Field(
+        description=(
+            "One of: 'set_probability', 'set_branch_value', 'set_terminal_value', "
+            "'rename_node', 'rename_branch', 'set_objective'."
+        )
+    )
+    node_id: str | None = Field(default=None, description="Target node id (most ops).")
+    branch_name: str | None = Field(
+        default=None, description="Target branch/option name (branch-level ops)."
+    )
+    value: float | None = Field(
+        default=None,
+        description="New number — probability, branch cash flow, or terminal payoff.",
+    )
+    name: str | None = Field(default=None, description="New label for a rename op.")
+    maximize: bool | None = Field(
+        default=None, description="New objective for 'set_objective' (true=maximize)."
+    )
+
+
 class BuildTreeResult(BaseModel):
     """Outcome of building a tree from a spec."""
 

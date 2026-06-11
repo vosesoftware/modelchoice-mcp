@@ -11,6 +11,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | Tool | What it does |
 |---|---|
 | `build_tree` | **Build a tree from a structured description** and write it into Excel (dry-run by default). Validates + rolls it back so you confirm the recommendation before writing. The build-from-a-prompt path. |
+| `edit_tree` | **Tweak an existing tree** — change probabilities, payoffs, labels, or the objective, then re-roll it (dry-run by default). The "tweak it by talking" path. |
 | `list_trees` | List the decision trees in a workbook with node-type counts. |
 | `get_tree` | Full structure of one tree — decision / chance / terminal nodes, branches, probabilities, values. |
 | `roll_up` | Roll the tree back to its expected values and **optimal policy** — the decision recommendation, in plain English. |

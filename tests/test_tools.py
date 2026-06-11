@@ -12,6 +12,7 @@ from modelchoice_mcp import tools
 from modelchoice_mcp.schemas import (
     BranchSpec,
     BuildTreeResult,
+    EditOp,
     EvpiResult,
     NodeSpec,
     RollbackVerification,
@@ -260,6 +261,60 @@ def test_build_tree_commit_writes_and_renders() -> None:
         out = tools.build_tree(_oil_spec(), dry_run=False)
         assert out.written is True and out.sheet == "MC_Tree_1"
         assert fake.rendered == "MC_Tree_1"
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_changes_payoff_and_flips_decision() -> None:
+    fake = _FakeBridge({"MC_Tree_1": _MODEL})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        # Drop the 'Sell' payoff below the chance EV (-25) so Drill wins.
+        out = tools.edit_tree(
+            [EditOp(op="set_branch_value", node_id="D", branch_name="Sell", value=-30)]
+        )
+        assert isinstance(out, BuildTreeResult)
+        assert out.written is False
+        assert out.optimal_path == ["Drill"]
+        assert out.expected_value == -25.0
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_set_objective_minimize() -> None:
+    fake = _FakeBridge({"MC_Tree_1": _MODEL})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        out = tools.edit_tree([EditOp(op="set_objective", maximize=False)])
+        # Minimizing prefers the chance node (EV -25) over Sell (50).
+        assert out.expected_value == -25.0 and out.optimal_path == ["Drill"]
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_commit_writes_same_sheet() -> None:
+    fake = _FakeBridge({"MC_Tree_1": _MODEL})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        out = tools.edit_tree(
+            [EditOp(op="set_probability", node_id="C", branch_name="Wet", value=0.8)],
+            dry_run=False,
+        )
+        assert out.written is True and out.sheet == "MC_Tree_1"
+        assert fake.rendered == "MC_Tree_1"
+        # The edited probability is reflected in the written JSON.
+        assert '"probability": 0.8' in fake.written_json
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_bad_target_raises() -> None:
+    from modelchoice_mcp.tree import TreeParseError
+
+    tools.set_bridge_for_testing(_FakeBridge({"MC_Tree_1": _MODEL}))  # type: ignore[arg-type]
+    try:
+        with pytest.raises(TreeParseError):
+            tools.edit_tree([EditOp(op="set_terminal_value", node_id="NOPE", value=1)])
     finally:
         tools.set_bridge_for_testing(None)
 
