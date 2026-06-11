@@ -66,7 +66,10 @@ class _FakeBridge:
         return {
             "command": command_name,
             "new_sheets": ["MC_RB_Verdict"],
-            "sheets": ["MC_Tree_1", "MC_RB_Verdict", "MC_SensReport", "MC_Tornado"],
+            "sheets": [
+                "MC_Tree_1", "MC_RB_Verdict", "MC_SensReport", "MC_Tornado",
+                "MC_StrategyTable", "MC_StratRegions",
+            ],
         }
 
     def write_tree(self, model_json: str, sheet_name: str | None = None,
@@ -317,6 +320,30 @@ def test_edit_tree_bad_target_raises() -> None:
             tools.edit_tree([EditOp(op="set_terminal_value", node_id="NOPE", value=1)])
     finally:
         tools.set_bridge_for_testing(None)
+
+
+def test_run_decision_report_strategy(bridge: _FakeBridge) -> None:
+    out = tools.run_decision_report("strategy_table")
+    assert bridge.last_command == "MC_ExportStrategyTable_Auto"
+    assert out.primary_sheet == "MC_StrategyTable"
+    assert out.sheets == ["MC_StrategyTable", "MC_StratRegions"]
+    assert out.rows  # primary sheet content came through
+
+
+def test_run_decision_report_unknown_raises(bridge: _FakeBridge) -> None:
+    with pytest.raises(ValueError):
+        tools.run_decision_report("astrology")
+
+
+def test_run_decision_report_maps_all(bridge: _FakeBridge) -> None:
+    cmds = {
+        "policy_suggestion": "MC_PolicySuggestion_Auto",
+        "decision_brief": "MC_DecisionBrief_Auto",
+        "mcda_report": "MC_McdaReport_Auto",
+    }
+    for name, cmd in cmds.items():
+        out = tools.run_decision_report(name)
+        assert out.command == cmd
 
 
 def test_run_sensitivity(bridge: _FakeBridge) -> None:

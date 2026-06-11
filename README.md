@@ -4,7 +4,7 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.5` — Phase 2 (driving analyses).** 9 tools: read + roll + verify, plus run_evpi / run_robustness / run_sensitivity / run_analysis / read_sheet over ModelChoice's headless commands.
+> **Status: `0.0.9` — Phase 3 (build + drive).** 12 tools: build_tree / edit_tree, read + roll + verify, plus run_evpi / run_robustness / run_sensitivity / run_decision_report / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
@@ -20,6 +20,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `run_analysis` | Run any decision-analysis (`robustness`, `sensitivity`, `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, `risk_profile`, `evpi`) and report the result sheets it produced. |
 | `run_robustness` | Run the robustness ("break the decision") analysis and return a structured read — verdict, score, and the minimum input change that flips the decision. |
 | `run_sensitivity` | Run one-way sensitivity and return the tornado-ordered report (which assumptions the decision is most sensitive to) + baseline EV + sheets. |
+| `run_decision_report` | Run a decision report — `strategy_table`, `policy_suggestion`, `decision_brief`, or `mcda_report` — and read the primary result sheet back in one call (rows + label→value pairs + related sheets). |
 | `read_sheet` | Read a result sheet's cells back (numbers / text), e.g. the robustness verdict or a sensitivity report. |
 
 **Prompt:** `/design-decision-tree` walks an analyst through building a tree from a description (or pasted data) and analysing it.

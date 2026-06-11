@@ -17,6 +17,7 @@ from modelchoice_mcp.schemas import (
     AnalysisRun,
     BranchView,
     BuildTreeResult,
+    DecisionReport,
     EditOp,
     EvpiResult,
     KeyValue,
@@ -648,6 +649,68 @@ def run_sensitivity(workbook_name: str | None = None) -> SensitivityReport:
     )
 
 
+# Friendly report name -> (command, primary result sheet, sheet-name prefixes).
+_REPORTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    "strategy_table": ("MC_ExportStrategyTable_Auto", "MC_StrategyTable", ("MC_Strat",)),
+    "policy_suggestion": ("MC_PolicySuggestion_Auto", "MC_PolicyTable", ("MC_Policy",)),
+    "decision_brief": ("MC_DecisionBrief_Auto", "MC_DecisionBrief", ("MC_Brief", "MC_Decision")),
+    "mcda_report": ("MC_McdaReport_Auto", "MC_MCDA_Summary", ("MC_MCDA", "MC_Mcda")),
+}
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Run a decision report and read it back in one call — "
+        "'strategy_table' (the optimal action for every scenario), "
+        "'policy_suggestion' (recommended policy + rationale), "
+        "'decision_brief' (an executive summary of the decision), or "
+        "'mcda_report' (multi-criteria scores). Returns the primary sheet's "
+        "rows, any label→value pairs found, and the related report sheets. "
+        "Requires the ModelChoice add-in loaded with a tree open."
+    )
+)
+def run_decision_report(
+    report: Annotated[
+        str, Field(description="One of: " + ", ".join(sorted(_REPORTS)))
+    ],
+    workbook_name: str | None = None,
+) -> DecisionReport:
+    key = report.lower()
+    if key not in _REPORTS:
+        raise ValueError(
+            f"Unknown report {report!r}. Choose from: {', '.join(sorted(_REPORTS))}."
+        )
+    command, primary, prefixes = _REPORTS[key]
+    bridge = get_bridge()
+    run = bridge.run_analysis(command, workbook_name)
+    all_sheets = run.get("sheets", [])
+    related = [s for s in all_sheets if s.startswith(prefixes)]
+
+    rows: list[Any] = []
+    primary_sheet: str | None = None
+    if primary in all_sheets:
+        primary_sheet = primary
+    elif related:
+        primary_sheet = related[0]
+    if primary_sheet is not None:
+        rows = bridge.read_sheet(primary_sheet, workbook_name)
+
+    return DecisionReport(
+        report=key,
+        command=command,
+        primary_sheet=primary_sheet,
+        rows=rows,
+        details=_key_values(rows),
+        sheets=related,
+        note=(
+            f"{report} report. Other sheets ({', '.join(related)}) are "
+            "available via read_sheet."
+            if related
+            else f"{report} ran; no report sheet was found."
+        ),
+    )
+
+
 @mcp.tool(
     description=(
         "ModelChoice: Read a worksheet's used range (capped) as rows of cell "
@@ -684,6 +747,7 @@ __all__ = [
     "read_sheet",
     "roll_up",
     "run_analysis",
+    "run_decision_report",
     "run_evpi",
     "run_robustness",
     "run_sensitivity",

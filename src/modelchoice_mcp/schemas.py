@@ -203,6 +203,23 @@ class RobustnessSummary(BaseModel):
     note: str
 
 
+class DecisionReport(BaseModel):
+    """Structured read of one of ModelChoice's report analyses
+    (strategy table, policy suggestion, decision brief, MCDA report)."""
+
+    report: str = Field(description="Report requested.")
+    command: str = Field(description="The MC_*_Auto command run.")
+    primary_sheet: str | None = Field(
+        default=None, description="Main result sheet (its rows are returned)."
+    )
+    rows: list[Any] = Field(description="Rows of the primary sheet (cell values).")
+    details: list[KeyValue] = Field(
+        default_factory=list, description="Label→value pairs found on the primary sheet."
+    )
+    sheets: list[str] = Field(description="All related report sheets produced.")
+    note: str
+
+
 class SensitivityReport(BaseModel):
     """Read of ModelChoice's one-way sensitivity analysis. Variables are
     reported tornado-ordered (largest EV swing first)."""
