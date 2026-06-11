@@ -241,6 +241,18 @@ class DecisionReport(BaseModel):
     note: str
 
 
+class ControlPanelResult(BaseModel):
+    """Outcome of lifting a tree's inputs into a linked control panel at the
+    top of its sheet (ModelChoice's headless MC_BuildControlPanel_Auto)."""
+
+    sheet: str | None = Field(default=None, description="Tree sheet the panel was built on.")
+    linked_count: int = Field(description="Number of inputs lifted into the panel and linked.")
+    inputs: list[KeyValue] = Field(
+        description="The control-panel rows: input label -> current value."
+    )
+    note: str
+
+
 class EviiResult(BaseModel):
     """Expected Value of Imperfect Information (EVII / EVSI) for a specific
     test, produced by ModelChoice's headless MC_EVII_Auto command. Unlike

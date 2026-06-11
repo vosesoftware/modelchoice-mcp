@@ -17,6 +17,7 @@ from modelchoice_mcp.schemas import (
     AnalysisRun,
     BranchView,
     BuildTreeResult,
+    ControlPanelResult,
     DecisionReport,
     EditOp,
     EviiResult,
@@ -696,6 +697,59 @@ def run_evii(
 
 @mcp.tool(
     description=(
+        "ModelChoice: Lift the active tree's inputs into a labelled CONTROL "
+        "PANEL at the top of its sheet, with each tree cell linked back to its "
+        "panel cell — so an analyst can drive the whole model from one tidy "
+        "input block and every probability/value flows through automatically. "
+        "Covers chance-branch probabilities and branch/option cash-flow values "
+        "(terminal payoffs are a follow-up). The links survive re-renders. "
+        "Drives ModelChoice's headless MC_BuildControlPanel_Auto; requires the "
+        "add-in loaded with a RENDERED tree (run build_tree/render first)."
+    )
+)
+def build_control_panel(
+    tree_name: Annotated[
+        str | None,
+        Field(description="Tree sheet name to build the panel on. Omit for the active sheet."),
+    ] = None,
+    workbook_name: str | None = None,
+) -> ControlPanelResult:
+    bridge = get_bridge()
+    r = bridge.build_control_panel(tree_name, workbook_name)
+    rows: list[list[Any]] = r.get("rows", [])
+
+    # Panel layout: title in B1, "Input"/"Value" header in B2/C2, then one
+    # labelled row per input (label in column B = index 1, value in column C
+    # = index 2). Collect rows whose label is text and value is numeric.
+    inputs: list[KeyValue] = []
+    for row in rows:
+        if len(row) < 3:
+            continue
+        label, value = row[1], row[2]
+        if not isinstance(label, str) or not label.strip():
+            continue
+        if label.strip().lower() in ("input", "control panel — inputs"):
+            continue
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            inputs.append(KeyValue(label=label.strip(), value=value))
+
+    return ControlPanelResult(
+        sheet=r.get("sheet"),
+        linked_count=len(inputs),
+        inputs=inputs,
+        note=(
+            f"Built a control panel of {len(inputs)} linked inputs at the top of "
+            f"{r.get('sheet')!r}. Edit a panel value and the tree re-rolls; the "
+            "links persist across re-renders."
+            if inputs
+            else "Control-panel command ran but no linked inputs were read back — "
+            "check that the tree is rendered."
+        ),
+    )
+
+
+@mcp.tool(
+    description=(
         "ModelChoice: Run a decision-analysis on the active tree and report the "
         "result sheets it produced. `analysis` is one of: 'risk_profile', "
         "'robustness' (how much inputs must change to flip the decision), "
@@ -926,6 +980,7 @@ def read_sheet(
 
 
 __all__ = [
+    "build_control_panel",
     "build_tree",
     "edit_tree",
     "get_bridge",

@@ -12,6 +12,7 @@ from modelchoice_mcp import tools
 from modelchoice_mcp.schemas import (
     BranchSpec,
     BuildTreeResult,
+    ControlPanelResult,
     EditOp,
     EviiResult,
     EvpiResult,
@@ -96,6 +97,22 @@ class _FakeBridge:
             [None, "The test is worthwhile.", None],
         ]
         return {"rows": rows, "sheets": ["MC_Tree_1", "MC_EVII"]}
+
+    def build_control_panel(self, sheet_name: str | None = None,
+                            workbook: str | None = None) -> dict[str, object]:
+        self.panel_sheet = sheet_name
+        # Mimic the panel block read back from the top of the tree sheet.
+        rows: list[list[object]] = [
+            [None, "Control Panel — Inputs", None],
+            [None, "Input", "Value"],
+            [None, "Geology: P(Dry)", 0.5],
+            [None, "Geology: Dry — value", -100.0],
+            [None, "Geology: P(Wet)", 0.5],
+            [None, "Geology: Wet — value", 50.0],
+            [None, "Drill?: Sell — value", 50.0],
+            [None, None, None],
+        ]
+        return {"sheet": sheet_name or "MC_Tree_1", "rows": rows}
 
     def write_tree(self, model_json: str, sheet_name: str | None = None,
                    workbook: str | None = None) -> str:
@@ -207,6 +224,20 @@ def test_run_evpi(bridge: _FakeBridge) -> None:
     assert out.evpi == 25.0 and out.optimal_ev == 50.0
     assert out.value_with_perfect_info == 75.0
     assert "25" in out.interpretation
+
+
+def test_build_control_panel_parses_inputs(bridge: _FakeBridge) -> None:
+    out = tools.build_control_panel("MC_Tree_1")
+    assert isinstance(out, ControlPanelResult)
+    assert bridge.panel_sheet == "MC_Tree_1"
+    assert out.sheet == "MC_Tree_1"
+    # Title and header rows are skipped; only labelled numeric rows count.
+    assert out.linked_count == 5
+    labels = {kv.label for kv in out.inputs}
+    assert "Geology: P(Dry)" in labels
+    assert "Drill?: Sell — value" in labels
+    assert "Input" not in labels
+    assert "persist across re-renders" in out.note
 
 
 def test_run_evii_parses_key_values(bridge: _FakeBridge) -> None:

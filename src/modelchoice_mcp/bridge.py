@@ -232,6 +232,50 @@ class ModelChoiceBridge:
         after = [s.name for s in book.sheets]
         return {"rows": rows, "sheets": after}
 
+    def build_control_panel(
+        self, sheet_name: str | None = None, workbook: str | None = None
+    ) -> dict[str, Any]:
+        """Drive ModelChoice's headless control-panel command.
+
+        Activates the target tree sheet (or the active one), calls
+        ``Application.Run("MC_BuildControlPanel_Auto")`` — which lifts the
+        tree's probability/value inputs into a labelled panel at the top of
+        the sheet and links each tree cell to its panel cell — then reads the
+        panel block back. Requires the ModelChoice add-in loaded with a
+        rendered tree. Returns ``{sheet, rows}``."""
+        book = self._book(workbook)
+        try:
+            book.activate()
+        except Exception:
+            pass
+
+        if sheet_name is not None:
+            try:
+                book.sheets[sheet_name].activate()
+            except Exception as exc:
+                raise ModelChoiceNotFoundError(
+                    f"No sheet named {sheet_name!r} to build a control panel on."
+                ) from exc
+            target = sheet_name
+        else:
+            try:
+                target = book.sheets.active.name
+            except Exception:
+                target = None
+
+        try:
+            book.app.api.Run("MC_BuildControlPanel_Auto")
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "MC_BuildControlPanel_Auto could not run — is the ModelChoice add-in "
+                "loaded in Excel, with a rendered decision tree on the active sheet?"
+            ) from exc
+
+        rows: list[list[Any]] = []
+        if target is not None:
+            rows = self.read_sheet(target, workbook, max_rows=60, max_cols=3)
+        return {"sheet": target, "rows": rows}
+
     def run_analysis(self, command_name: str, workbook: str | None = None) -> dict[str, Any]:
         """Drive a ModelChoice headless analysis command (an ``MC_*_Auto``
         ExcelCommand) via ``Application.Run`` and report which result
