@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -76,6 +78,27 @@ class NodeDiff(BaseModel):
     computed: float = Field(description="Our Python rollback EV for this node.")
     cell: float = Field(description="The MC_V_<nodeId> value ModelChoice wrote.")
     diff: float = Field(description="computed - cell.")
+
+
+class AnalysisRun(BaseModel):
+    """Result of driving a ModelChoice headless analysis command."""
+
+    analysis: str = Field(description="Friendly analysis name requested.")
+    command: str = Field(description="The MC_*_Auto ExcelCommand that was run.")
+    new_sheets: list[str] = Field(
+        description="Sheets the analysis created (read them with read_sheet)."
+    )
+    sheets: list[str] = Field(description="All sheets in the workbook afterwards.")
+    note: str
+
+
+class SheetData(BaseModel):
+    """A capped block of a worksheet's used range."""
+
+    sheet: str
+    row_count: int
+    rows: list[list[Any]] = Field(description="Cell values, row-major (numbers, text, or null).")
+    truncated: bool = Field(description="True if the sheet had more rows/cols than returned.")
 
 
 class EvpiResult(BaseModel):

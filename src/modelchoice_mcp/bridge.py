@@ -174,3 +174,53 @@ class ModelChoiceBridge:
             "evpi": _num("C7"),
             "value_with_perfect_info": _num("C8"),
         }
+
+    def run_analysis(self, command_name: str, workbook: str | None = None) -> dict[str, Any]:
+        """Drive a ModelChoice headless analysis command (an ``MC_*_Auto``
+        ExcelCommand) via ``Application.Run`` and report which result
+        sheets it produced. Activates the workbook first; raises
+        ``ModelChoiceNotFoundError`` if the command can't run (add-in not
+        loaded, or no active tree)."""
+        book = self._book(workbook)
+        try:
+            book.activate()
+        except Exception:
+            pass
+        before = {s.name for s in book.sheets}
+        try:
+            book.app.api.Run(command_name)
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                f"{command_name} could not run — is the ModelChoice add-in loaded "
+                "in Excel, with a decision tree open?"
+            ) from exc
+        after = [s.name for s in book.sheets]
+        new = [n for n in after if n not in before]
+        return {"command": command_name, "new_sheets": new, "sheets": after}
+
+    def read_sheet(
+        self,
+        sheet_name: str,
+        workbook: str | None = None,
+        max_rows: int = 200,
+        max_cols: int = 20,
+    ) -> list[list[Any]]:
+        """Read a result sheet's used range (capped) as a list of rows."""
+        book = self._book(workbook)
+        try:
+            sheet = book.sheets[sheet_name]
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                f"No sheet named {sheet_name!r} in the workbook."
+            ) from exc
+        used = sheet.used_range
+        nrows = min(int(used.rows.count), max_rows)
+        ncols = min(int(used.columns.count), max_cols)
+        if nrows == 0 or ncols == 0:
+            return []
+        raw = sheet.range((1, 1), (nrows, ncols)).value
+        if not isinstance(raw, list):
+            return [[raw]]
+        if raw and not isinstance(raw[0], list):
+            return [raw] if ncols == 1 else [[v] for v in raw]
+        return [list(row) for row in raw]

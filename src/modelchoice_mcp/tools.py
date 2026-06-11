@@ -13,6 +13,7 @@ from pydantic import Field
 
 from modelchoice_mcp.bridge import ModelChoiceBridge
 from modelchoice_mcp.schemas import (
+    AnalysisRun,
     BranchView,
     EvpiResult,
     NodeDiff,
@@ -20,12 +21,25 @@ from modelchoice_mcp.schemas import (
     NodeView,
     RollbackVerification,
     RollupResponse,
+    SheetData,
     TreeList,
     TreeStructure,
     TreeSummary,
 )
 from modelchoice_mcp.server import mcp
 from modelchoice_mcp.tree import DecisionTree, parse_model, rollup
+
+# Friendly analysis name -> ModelChoice headless ExcelCommand.
+_ANALYSES: dict[str, str] = {
+    "risk_profile": "MC_RiskProfile_Auto",
+    "robustness": "MC_Robustness_Auto",
+    "sensitivity": "MC_SensitivityAnalysis_Auto",
+    "strategy_table": "MC_ExportStrategyTable_Auto",
+    "policy_suggestion": "MC_PolicySuggestion_Auto",
+    "decision_brief": "MC_DecisionBrief_Auto",
+    "mcda_report": "MC_McdaReport_Auto",
+    "evpi": "MC_EVPI_Auto",
+}
 
 _bridge: ModelChoiceBridge | None = None
 
@@ -281,11 +295,79 @@ def run_evpi(workbook_name: str | None = None) -> EvpiResult:
     )
 
 
+@mcp.tool(
+    description=(
+        "ModelChoice: Run a decision-analysis on the active tree and report the "
+        "result sheets it produced. `analysis` is one of: 'risk_profile', "
+        "'robustness' (how much inputs must change to flip the decision), "
+        "'sensitivity', 'strategy_table', 'policy_suggestion', 'decision_brief', "
+        "'mcda_report', 'evpi'. Drives ModelChoice's headless command and lists "
+        "the new sheets — read them with read_sheet. Requires the ModelChoice "
+        "add-in loaded in Excel with a tree open."
+    )
+)
+def run_analysis(
+    analysis: Annotated[
+        str, Field(description="One of: " + ", ".join(sorted(_ANALYSES)))
+    ],
+    workbook_name: str | None = None,
+) -> AnalysisRun:
+    key = analysis.lower()
+    if key not in _ANALYSES:
+        raise ValueError(
+            f"Unknown analysis {analysis!r}. Choose from: {', '.join(sorted(_ANALYSES))}."
+        )
+    command = _ANALYSES[key]
+    r = get_bridge().run_analysis(command, workbook_name)
+    new = r.get("new_sheets", [])
+    note = (
+        f"{analysis} wrote: {', '.join(new)} — read with read_sheet."
+        if new
+        else f"{analysis} ran but added no new sheet; it may have updated an existing one."
+    )
+    return AnalysisRun(
+        analysis=key,
+        command=command,
+        new_sheets=new,
+        sheets=r.get("sheets", []),
+        note=note,
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Read a worksheet's used range (capped) as rows of cell "
+        "values — for pulling back the result sheet an analysis produced (e.g. "
+        "'MC_EVPI', 'MC_RB_Verdict', a sensitivity report). Returns numbers, "
+        "text, or null per cell."
+    )
+)
+def read_sheet(
+    sheet_name: Annotated[str, Field(description="Worksheet name to read.")],
+    workbook_name: str | None = None,
+    max_rows: Annotated[
+        int, Field(ge=1, le=2000, description="Max rows to return (default 200).")
+    ] = 200,
+    max_cols: Annotated[
+        int, Field(ge=1, le=100, description="Max columns to return (default 20).")
+    ] = 20,
+) -> SheetData:
+    rows = get_bridge().read_sheet(sheet_name, workbook_name, max_rows=max_rows, max_cols=max_cols)
+    return SheetData(
+        sheet=sheet_name,
+        row_count=len(rows),
+        rows=rows,
+        truncated=len(rows) >= max_rows,
+    )
+
+
 __all__ = [
     "get_bridge",
     "get_tree",
     "list_trees",
+    "read_sheet",
     "roll_up",
+    "run_analysis",
     "run_evpi",
     "set_bridge_for_testing",
     "verify_rollback",

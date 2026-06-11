@@ -56,6 +56,18 @@ class _FakeBridge:
             "value_with_perfect_info": 75.0,
         }
 
+    def run_analysis(self, command_name: str, workbook: str | None = None) -> dict[str, object]:
+        self.last_command = command_name
+        return {
+            "command": command_name,
+            "new_sheets": ["MC_RB_Verdict"],
+            "sheets": ["MC_Tree_1", "MC_RB_Verdict"],
+        }
+
+    def read_sheet(self, sheet_name: str, workbook: str | None = None,
+                   max_rows: int = 200, max_cols: int = 20) -> list[list[object]]:
+        return [["Verdict", "Robust"], ["Distance", 0.42]]
+
 
 @pytest.fixture
 def bridge() -> Iterator[_FakeBridge]:
@@ -149,3 +161,28 @@ def test_run_evpi(bridge: _FakeBridge) -> None:
     assert out.evpi == 25.0 and out.optimal_ev == 50.0
     assert out.value_with_perfect_info == 75.0
     assert "25" in out.interpretation
+
+
+def test_run_analysis_maps_friendly_name(bridge: _FakeBridge) -> None:
+    out = tools.run_analysis("robustness")
+    assert out.command == "MC_Robustness_Auto"
+    assert out.new_sheets == ["MC_RB_Verdict"]
+    assert "read_sheet" in out.note
+    assert bridge.last_command == "MC_Robustness_Auto"
+
+
+def test_run_analysis_unknown_raises(bridge: _FakeBridge) -> None:
+    with pytest.raises(ValueError):
+        tools.run_analysis("teleport")
+
+
+def test_run_analysis_covers_all_known(bridge: _FakeBridge) -> None:
+    for name in ("risk_profile", "sensitivity", "strategy_table", "evpi"):
+        assert tools.run_analysis(name).command.startswith("MC_")
+
+
+def test_read_sheet(bridge: _FakeBridge) -> None:
+    out = tools.read_sheet("MC_RB_Verdict")
+    assert out.sheet == "MC_RB_Verdict" and out.row_count == 2
+    assert out.rows[1] == ["Distance", 0.42]
+    assert out.truncated is False
