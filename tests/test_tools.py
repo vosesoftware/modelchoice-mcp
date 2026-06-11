@@ -61,7 +61,7 @@ class _FakeBridge:
         return {
             "command": command_name,
             "new_sheets": ["MC_RB_Verdict"],
-            "sheets": ["MC_Tree_1", "MC_RB_Verdict"],
+            "sheets": ["MC_Tree_1", "MC_RB_Verdict", "MC_SensReport", "MC_Tornado"],
         }
 
     def read_sheet(self, sheet_name: str, workbook: str | None = None,
@@ -204,3 +204,11 @@ def test_run_robustness_extracts_headline(bridge: _FakeBridge) -> None:
     }
     assert out.sheets == ["MC_RB_Verdict"]
     assert bridge.last_command == "MC_Robustness_Auto"
+
+
+def test_run_sensitivity(bridge: _FakeBridge) -> None:
+    out = tools.run_sensitivity()
+    assert bridge.last_command == "MC_SensitivityAnalysis_Auto"
+    assert out.sheets == ["MC_SensReport", "MC_Tornado"]
+    assert out.report_rows  # MC_SensReport rows came through
+    assert "tornado" in out.note.lower()

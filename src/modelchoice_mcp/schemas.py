@@ -127,6 +127,22 @@ class RobustnessSummary(BaseModel):
     note: str
 
 
+class SensitivityReport(BaseModel):
+    """Read of ModelChoice's one-way sensitivity analysis. Variables are
+    reported tornado-ordered (largest EV swing first)."""
+
+    baseline_ev: float | None = Field(
+        default=None, description="The model's baseline expected value, if found."
+    )
+    report_rows: list[list[Any]] = Field(
+        description="Rows of the MC_SensReport sheet (variables ranked by swing)."
+    )
+    sheets: list[str] = Field(
+        description="Sensitivity report sheets produced (MC_Sens*/MC_Tornado)."
+    )
+    note: str
+
+
 class EvpiResult(BaseModel):
     """Expected Value of Perfect Information for the active tree, produced
     by ModelChoice's headless MC_EVPI_Auto command."""

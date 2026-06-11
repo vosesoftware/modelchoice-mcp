@@ -23,6 +23,7 @@ from modelchoice_mcp.schemas import (
     RobustnessSummary,
     RollbackVerification,
     RollupResponse,
+    SensitivityReport,
     SheetData,
     TreeList,
     TreeStructure,
@@ -399,6 +400,48 @@ def run_robustness(workbook_name: str | None = None) -> RobustnessSummary:
 
 @mcp.tool(
     description=(
+        "ModelChoice: Run one-way sensitivity analysis and return the report. "
+        "Auto-selects the model's variable inputs and ranks them by how much "
+        "they swing the expected value (tornado order, largest first) — showing "
+        "which assumptions the decision is most sensitive to. Returns the "
+        "MC_SensReport rows, the baseline EV, and the report sheets "
+        "(MC_SensReport / MC_Tornado / …). Requires the ModelChoice add-in "
+        "loaded with a tree open."
+    )
+)
+def run_sensitivity(workbook_name: str | None = None) -> SensitivityReport:
+    bridge = get_bridge()
+    run = bridge.run_analysis("MC_SensitivityAnalysis_Auto", workbook_name)
+    all_sheets = run.get("sheets", [])
+    sens_sheets = [s for s in all_sheets if s.startswith(("MC_Sens", "MC_Tornado", "MC_Spider"))]
+    rows: list[list[Any]] = []
+    if "MC_SensReport" in all_sheets:
+        rows = bridge.read_sheet("MC_SensReport", workbook_name)
+
+    baseline: float | None = None
+    for row in rows:
+        if row and isinstance(row[0], str) and "baseline" in row[0].lower():
+            val = next(
+                (c for c in row[1:] if isinstance(c, (int, float)) and not isinstance(c, bool)),
+                None,
+            )
+            if val is not None:
+                baseline = float(val)
+                break
+
+    return SensitivityReport(
+        baseline_ev=baseline,
+        report_rows=rows,
+        sheets=sens_sheets,
+        note=(
+            "Variables are tornado-ordered (largest EV swing first). "
+            "The MC_Tornado sheet has the chart; read other sheets with read_sheet."
+        ),
+    )
+
+
+@mcp.tool(
+    description=(
         "ModelChoice: Read a worksheet's used range (capped) as rows of cell "
         "values — for pulling back the result sheet an analysis produced (e.g. "
         "'MC_EVPI', 'MC_RB_Verdict', a sensitivity report). Returns numbers, "
@@ -433,6 +476,7 @@ __all__ = [
     "run_analysis",
     "run_evpi",
     "run_robustness",
+    "run_sensitivity",
     "set_bridge_for_testing",
     "verify_rollback",
 ]

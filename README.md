@@ -4,7 +4,7 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.1` — Phase 1 MCP server (read-only).** Three tools (`list_trees`, `get_tree`, `roll_up`) over a proven read path. Building/analysis tools are on the roadmap below.
+> **Status: `0.0.5` — Phase 2 (driving analyses).** 9 tools: read + roll + verify, plus run_evpi / run_robustness / run_sensitivity / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
@@ -17,6 +17,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `run_evpi` | Expected Value of Perfect Information for the active tree — the most you'd pay for perfect information before deciding. Drives ModelChoice's headless `MC_EVPI_Auto`. |
 | `run_analysis` | Run any decision-analysis (`robustness`, `sensitivity`, `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, `risk_profile`, `evpi`) and report the result sheets it produced. |
 | `run_robustness` | Run the robustness ("break the decision") analysis and return a structured read — verdict, score, and the minimum input change that flips the decision. |
+| `run_sensitivity` | Run one-way sensitivity and return the tornado-ordered report (which assumptions the decision is most sensitive to) + baseline EV + sheets. |
 | `read_sheet` | Read a result sheet's cells back (numbers / text), e.g. the robustness verdict or a sensitivity report. |
 
 Run it: `uv run python -m modelchoice_mcp` (stdio), or wire `modelchoice-mcp` into Claude Desktop like any MCP server.
