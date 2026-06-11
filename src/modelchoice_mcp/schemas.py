@@ -68,3 +68,28 @@ class RollupResponse(BaseModel):
     )
     recommendation: str = Field(description="Plain-English decision recommendation.")
     nodes: list[NodeResultView]
+
+
+class NodeDiff(BaseModel):
+    node_id: str
+    name: str
+    computed: float = Field(description="Our Python rollback EV for this node.")
+    cell: float = Field(description="The MC_V_<nodeId> value ModelChoice wrote.")
+    diff: float = Field(description="computed - cell.")
+
+
+class RollbackVerification(BaseModel):
+    """Cross-check of our Python rollback against the EVs ModelChoice
+    itself wrote into the MC_V_<nodeId> named ranges."""
+
+    name: str
+    rendered: bool = Field(
+        description="True if the tree has MC_V_ cells (i.e. it has been rendered by the add-in)."
+    )
+    compared_count: int = Field(description="Nodes present in both our rollback and the cells.")
+    matches: int
+    max_abs_diff: float = Field(description="Largest |computed - cell| across compared nodes.")
+    mismatches: list[NodeDiff] = Field(
+        default_factory=list, description="Nodes whose values differ beyond the tolerance."
+    )
+    verdict: str

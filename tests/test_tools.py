@@ -9,7 +9,12 @@ from collections.abc import Iterator
 import pytest
 
 from modelchoice_mcp import tools
-from modelchoice_mcp.schemas import RollupResponse, TreeList, TreeStructure
+from modelchoice_mcp.schemas import (
+    RollbackVerification,
+    RollupResponse,
+    TreeList,
+    TreeStructure,
+)
 
 # Ground-truth tree (matches ModelChoice's C# rollback test): EV 50, Option2.
 _MODEL = json.dumps({
@@ -29,11 +34,17 @@ _MODEL = json.dumps({
 
 
 class _FakeBridge:
-    def __init__(self, trees: dict[str, str]) -> None:
+    def __init__(
+        self, trees: dict[str, str], node_values: dict[str, float] | None = None
+    ) -> None:
         self._trees = trees
+        self._node_values = node_values or {}
 
     def list_trees(self, workbook: str | None = None) -> dict[str, str]:
         return dict(self._trees)
+
+    def read_node_values(self, workbook: str | None = None) -> dict[str, float]:
+        return dict(self._node_values)
 
 
 @pytest.fixture
@@ -42,6 +53,10 @@ def bridge() -> Iterator[_FakeBridge]:
     tools.set_bridge_for_testing(b)  # type: ignore[arg-type]
     yield b
     tools.set_bridge_for_testing(None)
+
+
+def _set(b: _FakeBridge) -> None:
+    tools.set_bridge_for_testing(b)  # type: ignore[arg-type]
 
 
 def test_list_trees_summarizes(bridge: _FakeBridge) -> None:
@@ -77,3 +92,42 @@ def test_roll_up_recommends_optimal(bridge: _FakeBridge) -> None:
 def test_named_tree_selection(bridge: _FakeBridge) -> None:
     out = tools.roll_up(tree_name="MC_Tree_1")
     assert out.name == "MC_Tree_1"
+
+
+# Computed EVs for the ground-truth tree: D=50, C=-25, T1=-100, T2=50.
+_TRUE_CELLS = {"D": 50.0, "C": -25.0, "T1": -100.0, "T2": 50.0}
+
+
+def test_verify_rollback_matches() -> None:
+    _set(_FakeBridge({"MC_Tree_1": _MODEL}, _TRUE_CELLS))
+    try:
+        out = tools.verify_rollback()
+        assert isinstance(out, RollbackVerification)
+        assert out.rendered and out.compared_count == 4
+        assert out.matches == 4 and not out.mismatches
+        assert out.max_abs_diff < 0.01
+        assert "verified" in out.verdict
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_verify_rollback_flags_mismatch() -> None:
+    bad = dict(_TRUE_CELLS, C=-20.0)  # chance EV off by 5
+    _set(_FakeBridge({"MC_Tree_1": _MODEL}, bad))
+    try:
+        out = tools.verify_rollback()
+        assert [m.node_id for m in out.mismatches] == ["C"]
+        assert out.mismatches[0].diff == pytest.approx(-5.0)
+        assert out.max_abs_diff == pytest.approx(5.0)
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_verify_rollback_not_rendered() -> None:
+    _set(_FakeBridge({"MC_Tree_1": _MODEL}, {}))  # no MC_V_ cells
+    try:
+        out = tools.verify_rollback()
+        assert out.rendered is False and out.compared_count == 0
+        assert "not rendered" in out.verdict.lower()
+    finally:
+        tools.set_bridge_for_testing(None)

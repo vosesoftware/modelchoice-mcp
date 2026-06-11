@@ -14,8 +14,10 @@ from pydantic import Field
 from modelchoice_mcp.bridge import ModelChoiceBridge
 from modelchoice_mcp.schemas import (
     BranchView,
+    NodeDiff,
     NodeResultView,
     NodeView,
+    RollbackVerification,
     RollupResponse,
     TreeList,
     TreeStructure,
@@ -178,4 +180,76 @@ def roll_up(
     )
 
 
-__all__ = ["get_bridge", "get_tree", "list_trees", "roll_up", "set_bridge_for_testing"]
+@mcp.tool(
+    description=(
+        "ModelChoice: Cross-check our rollback against ModelChoice's own. The "
+        "add-in writes each node's rolled-back EV into an MC_V_<nodeId> named "
+        "range when it renders a tree; this compares those cells to our Python "
+        "rollback and reports any node that differs beyond `tolerance`. A clean "
+        "result is strong evidence the read+rollback is faithful. If the tree "
+        "hasn't been rendered (no MC_V_ cells), `rendered` is false — open the "
+        "tree in ModelChoice so it renders, then re-run."
+    )
+)
+def verify_rollback(
+    tree_name: Annotated[
+        str | None, Field(description="Tree sheet name. Omit for the first tree.")
+    ] = None,
+    workbook_name: str | None = None,
+    tolerance: Annotated[
+        float, Field(gt=0, description="Max allowed |computed - cell| difference. Default 0.01.")
+    ] = 0.01,
+) -> RollbackVerification:
+    bridge = get_bridge()
+    trees = bridge.list_trees(workbook_name)
+    if tree_name is None:
+        tree_name = next(iter(trees))
+    r = rollup(parse_model(trees[tree_name]))
+    cells = bridge.read_node_values(workbook_name)
+
+    common = [nid for nid in r.node_results if nid in cells]
+    mismatches: list[NodeDiff] = []
+    max_abs = 0.0
+    for nid in common:
+        computed = r.node_results[nid].expected_value
+        cell = cells[nid]
+        diff = computed - cell
+        max_abs = max(max_abs, abs(diff))
+        if abs(diff) > tolerance:
+            mismatches.append(
+                NodeDiff(
+                    node_id=nid, name=r.node_results[nid].name,
+                    computed=computed, cell=cell, diff=diff,
+                )
+            )
+
+    rendered = len(cells) > 0
+    matches = len(common) - len(mismatches)
+    if not rendered:
+        verdict = "Tree not rendered — no MC_V_ cells found. Open it in ModelChoice first."
+    elif not common:
+        verdict = "No overlapping node IDs between the model and the rendered cells."
+    elif not mismatches:
+        verdict = f"Rollback verified: all {matches} compared nodes match (max diff {max_abs:.2g})."
+    else:
+        verdict = f"{len(mismatches)} of {len(common)} nodes differ beyond {tolerance}."
+
+    return RollbackVerification(
+        name=tree_name,
+        rendered=rendered,
+        compared_count=len(common),
+        matches=matches,
+        max_abs_diff=max_abs,
+        mismatches=mismatches,
+        verdict=verdict,
+    )
+
+
+__all__ = [
+    "get_bridge",
+    "get_tree",
+    "list_trees",
+    "roll_up",
+    "set_bridge_for_testing",
+    "verify_rollback",
+]

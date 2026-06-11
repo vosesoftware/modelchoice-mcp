@@ -94,3 +94,42 @@ class ModelChoiceBridge:
     def roll_up(self, sheet_name: str | None = None, workbook: str | None = None) -> RollupResult:
         """Read a tree and return its rolled-back EV + optimal policy."""
         return rollup(self.get_tree(sheet_name, workbook))
+
+    def read_node_values(self, workbook: str | None = None) -> dict[str, float]:
+        """Read the rolled-back expected values ModelChoice itself wrote
+        into the ``MC_V_<nodeId>`` named ranges on the rendered tree
+        sheet(s). Returns ``{nodeId: value}``. These are the add-in's own
+        rollback numbers — comparing them to our Python rollback proves
+        the two agree. Returns an empty dict if the tree hasn't been
+        rendered (named ranges only exist after a render)."""
+        book = self._book(workbook)
+        prefix = "MC_V_"
+        out: dict[str, float] = {}
+
+        name_objs: list[Any] = []
+        try:
+            name_objs.extend(list(book.names))
+        except Exception:
+            pass
+        for sht in book.sheets:
+            try:
+                name_objs.extend(list(sht.names))
+            except Exception:
+                pass
+
+        for nm in name_objs:
+            try:
+                full = str(nm.name)  # may be "MC_V_D" or "Sheet!MC_V_D"
+            except Exception:
+                continue
+            idx = full.find(prefix)
+            if idx < 0:
+                continue
+            node_id = full[idx + len(prefix):]
+            try:
+                val = nm.refers_to_range.value
+            except Exception:
+                continue
+            if isinstance(val, (int, float)) and not isinstance(val, bool):
+                out[node_id] = float(val)
+        return out
