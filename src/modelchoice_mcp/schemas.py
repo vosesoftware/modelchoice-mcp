@@ -80,6 +80,58 @@ class NodeDiff(BaseModel):
     diff: float = Field(description="computed - cell.")
 
 
+class BranchSpec(BaseModel):
+    """A branch (chance) or option (decision) in a tree being built."""
+
+    name: str = Field(description="Branch/option label.")
+    child_id: str = Field(description="Id of the node this branch leads to.")
+    value: float = Field(
+        default=0.0, description="Cash flow added along this branch (cost/payoff)."
+    )
+    probability: float | None = Field(
+        default=None,
+        description="Probability (chance branches only; auto-normalized if they don't sum to 1).",
+    )
+
+
+class NodeSpec(BaseModel):
+    """One node of a tree being built."""
+
+    id: str = Field(description="Unique node id (e.g. 'D', 'C', 'T1').")
+    type: str = Field(description="'decision', 'chance', or 'terminal'.")
+    name: str = Field(description="Node label.")
+    value: float = Field(default=0.0, description="Terminal node's own payoff (terminal only).")
+    branches: list[BranchSpec] = Field(
+        default_factory=list,
+        description="Children — chance branches (with probability) or decision options.",
+    )
+
+
+class TreeSpec(BaseModel):
+    """A decision tree to build, assembled from a description."""
+
+    root_id: str = Field(description="Id of the root node.")
+    model_name: str = Field(default="Untitled", description="Tree name.")
+    maximize: bool = Field(default=True, description="True = maximize EV; False = minimize.")
+    nodes: list[NodeSpec] = Field(description="All nodes in the tree.")
+
+
+class BuildTreeResult(BaseModel):
+    """Outcome of building a tree from a spec."""
+
+    written: bool = Field(description="True if written into the workbook (else a dry-run preview).")
+    sheet: str | None = Field(
+        default=None, description="Tree sheet it was written to, if committed."
+    )
+    node_count: int
+    expected_value: float = Field(description="Rolled-back EV of the built tree.")
+    optimal_path: list[str]
+    recommendation: str
+    model_json: str = Field(
+        description="The ModelChoice model JSON that was (or would be) written."
+    )
+
+
 class AnalysisRun(BaseModel):
     """Result of driving a ModelChoice headless analysis command."""
 

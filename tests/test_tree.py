@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from modelchoice_mcp.tree import TreeParseError, parse_model, rollup
+from modelchoice_mcp.tree import TreeParseError, parse_model, rollup, to_model_json
 
 # Ground truth from ModelChoice.Core.Tests/UnitTest1.cs:
 # Decision D -> {Option1->chance C, Option2->T2 value 50};
@@ -73,6 +73,29 @@ def test_accumulated_branch_values_reach_terminal() -> None:
         },
     }
     assert rollup(parse_model(json.dumps(model))).expected_value == 123.0
+
+
+def test_serialize_round_trips_through_parser() -> None:
+    # parse -> serialize -> parse must preserve structure and rollback.
+    tree = parse_model(json.dumps(_GROUND_TRUTH))
+    again = parse_model(to_model_json(tree))
+    assert again.root_id == tree.root_id
+    assert set(again.nodes) == set(tree.nodes)
+    assert rollup(again).expected_value == rollup(tree).expected_value == 50.0
+
+
+def test_serialize_emits_modelchoice_shape() -> None:
+    tree = parse_model(json.dumps(_GROUND_TRUTH))
+    raw = json.loads(to_model_json(tree))
+    assert raw["RootId"] == "D"
+    assert raw["Nodes"]["D"]["type"] == "decision"
+    assert raw["Nodes"]["C"]["type"] == "chance"
+    # chance branch carries probability; the converter shape uses childId
+    branch = raw["Nodes"]["C"]["branches"][0]
+    assert "probability" in branch and "childId" in branch
+    # terminal carries its own value
+    assert raw["Nodes"]["T1"]["value"] == 0
+    assert raw["Settings"]["Maximize"] is True
 
 
 def test_bad_json_raises() -> None:

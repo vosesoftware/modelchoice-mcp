@@ -160,6 +160,50 @@ def parse_model(model_json: str) -> DecisionTree:
     )
 
 
+def _branch_json(b: Branch, *, include_probability: bool) -> dict[str, Any]:
+    out: dict[str, Any] = {"name": b.name, "childId": b.child_id}
+    if include_probability:
+        out["probability"] = b.probability if b.probability is not None else 0.0
+    # Match ModelChoice's writer: omit branch/option value when it is 0.
+    if b.value != 0:
+        out["value"] = b.value
+    return out
+
+
+def to_model_json(tree: DecisionTree) -> str:
+    """Serialize a :class:`DecisionTree` to the exact ModelChoice model
+    JSON (the inverse of :func:`parse_model`). Produces the
+    ``{"RootId", "Nodes": {id: {"type", ...}}, "Settings"}`` shape that
+    ``DecisionTreeModel.FromJson`` consumes — terminal nodes carry
+    ``value``; chance nodes carry ``branches`` with ``probability``;
+    decision nodes carry ``options``. A partial ``Settings`` is fine —
+    ModelChoice fills the rest with defaults on load."""
+    nodes: dict[str, Any] = {}
+    for nid, n in tree.nodes.items():
+        if n.kind == "terminal":
+            nodes[nid] = {"type": "terminal", "id": n.id, "name": n.name, "value": n.value}
+        elif n.kind == "chance":
+            nodes[nid] = {
+                "type": "chance", "id": n.id, "name": n.name,
+                "branches": [_branch_json(b, include_probability=True) for b in n.branches],
+            }
+        elif n.kind == "decision":
+            nodes[nid] = {
+                "type": "decision", "id": n.id, "name": n.name,
+                "options": [_branch_json(b, include_probability=False) for b in n.branches],
+            }
+        else:  # pragma: no cover - guarded by construction
+            raise TreeParseError(f"node {nid!r} has unsupported kind {n.kind!r}")
+
+    return json.dumps(
+        {
+            "RootId": tree.root_id,
+            "Nodes": nodes,
+            "Settings": {"ModelName": tree.model_name, "Maximize": tree.maximize},
+        }
+    )
+
+
 def rollup(tree: DecisionTree) -> RollupResult:
     """Roll the tree back to expected values and the optimal policy.
 

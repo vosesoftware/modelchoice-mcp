@@ -10,10 +10,14 @@ import pytest
 
 from modelchoice_mcp import tools
 from modelchoice_mcp.schemas import (
+    BranchSpec,
+    BuildTreeResult,
     EvpiResult,
+    NodeSpec,
     RollbackVerification,
     RollupResponse,
     TreeList,
+    TreeSpec,
     TreeStructure,
 )
 
@@ -63,6 +67,14 @@ class _FakeBridge:
             "new_sheets": ["MC_RB_Verdict"],
             "sheets": ["MC_Tree_1", "MC_RB_Verdict", "MC_SensReport", "MC_Tornado"],
         }
+
+    def write_tree(self, model_json: str, sheet_name: str | None = None,
+                   workbook: str | None = None) -> str:
+        self.written_json = model_json
+        return sheet_name or "MC_Tree_1"
+
+    def render_tree(self, sheet_name: str, workbook: str | None = None) -> None:
+        self.rendered = sheet_name
 
     def read_sheet(self, sheet_name: str, workbook: str | None = None,
                    max_rows: int = 200, max_cols: int = 20) -> list[list[object]]:
@@ -204,6 +216,52 @@ def test_run_robustness_extracts_headline(bridge: _FakeBridge) -> None:
     }
     assert out.sheets == ["MC_RB_Verdict"]
     assert bridge.last_command == "MC_Robustness_Auto"
+
+
+def _oil_spec() -> TreeSpec:
+    return TreeSpec(
+        root_id="D",
+        model_name="Oil",
+        maximize=True,
+        nodes=[
+            NodeSpec(id="D", type="decision", name="Drill?", branches=[
+                BranchSpec(name="Drill", child_id="C"),
+                BranchSpec(name="Sell", child_id="T2", value=50),
+            ]),
+            NodeSpec(id="C", type="chance", name="Geology", branches=[
+                BranchSpec(name="Dry", child_id="T1", value=-100, probability=0.5),
+                BranchSpec(name="Wet", child_id="T2", value=50, probability=0.5),
+            ]),
+            NodeSpec(id="T1", type="terminal", name="Loss", value=0),
+            NodeSpec(id="T2", type="terminal", name="Win", value=0),
+        ],
+    )
+
+
+def test_build_tree_dry_run_validates_and_rolls_up() -> None:
+    tools.set_bridge_for_testing(_FakeBridge({}))  # type: ignore[arg-type]
+    try:
+        out = tools.build_tree(_oil_spec())
+        assert isinstance(out, BuildTreeResult)
+        assert out.written is False and out.sheet is None
+        assert out.node_count == 4
+        assert out.expected_value == 50.0
+        assert out.optimal_path == ["Sell"]
+        # The emitted JSON is real ModelChoice model JSON.
+        assert '"RootId": "D"' in out.model_json and '"type": "chance"' in out.model_json
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_build_tree_commit_writes_and_renders() -> None:
+    fake = _FakeBridge({})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        out = tools.build_tree(_oil_spec(), dry_run=False)
+        assert out.written is True and out.sheet == "MC_Tree_1"
+        assert fake.rendered == "MC_Tree_1"
+    finally:
+        tools.set_bridge_for_testing(None)
 
 
 def test_run_sensitivity(bridge: _FakeBridge) -> None:

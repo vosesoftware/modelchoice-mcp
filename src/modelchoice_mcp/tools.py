@@ -15,6 +15,7 @@ from modelchoice_mcp.bridge import ModelChoiceBridge
 from modelchoice_mcp.schemas import (
     AnalysisRun,
     BranchView,
+    BuildTreeResult,
     EvpiResult,
     KeyValue,
     NodeDiff,
@@ -26,11 +27,20 @@ from modelchoice_mcp.schemas import (
     SensitivityReport,
     SheetData,
     TreeList,
+    TreeSpec,
     TreeStructure,
     TreeSummary,
 )
 from modelchoice_mcp.server import mcp
-from modelchoice_mcp.tree import DecisionTree, parse_model, rollup
+from modelchoice_mcp.tree import (
+    Branch,
+    DecisionTree,
+    Node,
+    TreeParseError,
+    parse_model,
+    rollup,
+    to_model_json,
+)
 
 # Friendly analysis name -> ModelChoice headless ExcelCommand.
 _ANALYSES: dict[str, str] = {
@@ -57,6 +67,86 @@ def get_bridge() -> ModelChoiceBridge:
 def set_bridge_for_testing(bridge: ModelChoiceBridge | None) -> None:
     global _bridge
     _bridge = bridge
+
+
+def _spec_to_tree(spec: TreeSpec) -> DecisionTree:
+    nodes: dict[str, Node] = {}
+    for ns in spec.nodes:
+        kind = ns.type.lower()
+        if kind == "terminal":
+            nodes[ns.id] = Node(id=ns.id, name=ns.name, kind="terminal", value=ns.value)
+        elif kind in ("chance", "decision"):
+            branches = [
+                Branch(
+                    name=b.name,
+                    child_id=b.child_id,
+                    value=b.value,
+                    probability=(b.probability if kind == "chance" else None),
+                )
+                for b in ns.branches
+            ]
+            nodes[ns.id] = Node(id=ns.id, name=ns.name, kind=kind, branches=branches)
+        else:
+            raise TreeParseError(f"node {ns.id!r}: unknown type {ns.type!r}")
+    return DecisionTree(
+        root_id=spec.root_id,
+        nodes=nodes,
+        maximize=spec.maximize,
+        model_name=spec.model_name,
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Build a decision tree from a structured description and "
+        "(optionally) write it into Excel. Assemble `spec` from the decision: "
+        "decision / chance / terminal nodes, with branch probabilities and "
+        "cash flows (branch `value`) and terminal payoffs. The tool serializes "
+        "it to ModelChoice's model format, validates it (rolls it back — "
+        "catching cycles, missing children, bad structure), and returns the "
+        "rolled-back EV + optimal policy so you can confirm before writing. "
+        "dry_run=True (default) previews without touching Excel; dry_run=False "
+        "writes the tree into the workbook and renders it (needs the "
+        "ModelChoice add-in loaded). This is the build-from-a-prompt path."
+    )
+)
+def build_tree(
+    spec: TreeSpec,
+    dry_run: bool = True,
+    workbook_name: str | None = None,
+) -> BuildTreeResult:
+    tree = _spec_to_tree(spec)
+    model_json = to_model_json(tree)
+    # Validate by round-tripping through the parser + roller.
+    parsed = parse_model(model_json)
+    r = rollup(parsed)
+
+    direction = "maximize" if tree.maximize else "minimize"
+    if r.optimal_path:
+        rec = (
+            f"Optimal decision ({direction} EV): take {' → '.join(r.optimal_path)}. "
+            f"Expected value {r.expected_value:,.2f}."
+        )
+    else:
+        rec = f"Expected value {r.expected_value:,.2f} ({direction})."
+
+    written = False
+    sheet: str | None = None
+    if not dry_run:
+        bridge = get_bridge()
+        sheet = bridge.write_tree(model_json, workbook=workbook_name)
+        bridge.render_tree(sheet, workbook_name)
+        written = True
+
+    return BuildTreeResult(
+        written=written,
+        sheet=sheet,
+        node_count=len(parsed.nodes),
+        expected_value=r.expected_value,
+        optimal_path=r.optimal_path,
+        recommendation=rec,
+        model_json=model_json,
+    )
 
 
 def _counts(tree: DecisionTree) -> tuple[int, int, int]:
@@ -468,6 +558,7 @@ def read_sheet(
 
 
 __all__ = [
+    "build_tree",
     "get_bridge",
     "get_tree",
     "list_trees",

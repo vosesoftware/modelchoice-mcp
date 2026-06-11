@@ -12,10 +12,14 @@ reads cell values only.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from modelchoice_mcp.store import STORE_SHEET_NAME, parse_store, reassemble_chunks
 from modelchoice_mcp.tree import DecisionTree, RollupResult, parse_model, rollup
+
+# Excel cells cap at 32,767 chars; ModelChoice chunks the store at 32,000.
+_MAX_CELL_CHARS = 32000
 
 
 class ModelChoiceNotFoundError(RuntimeError):
@@ -197,6 +201,69 @@ class ModelChoiceBridge:
         after = [s.name for s in book.sheets]
         new = [n for n in after if n not in before]
         return {"command": command_name, "new_sheets": new, "sheets": after}
+
+    def write_tree(
+        self, model_json: str, sheet_name: str | None = None, workbook: str | None = None
+    ) -> str:
+        """Write a tree's model JSON into the workbook's ``_MC_Store``
+        (v2 envelope, merged with any existing trees, chunked across
+        columns) under a tree sheet name, creating the very-hidden store
+        sheet if needed. Returns the sheet name used. The add-in is not
+        required to store; call :meth:`render_tree` to draw it."""
+        book = self._book(workbook)
+        raw = self.read_store_raw(workbook)
+        trees = parse_store(raw) if raw else {}
+
+        if sheet_name is None:
+            existing = {s.name for s in book.sheets} | set(trees)
+            i = 1
+            while f"MC_Tree_{i}" in existing:
+                i += 1
+            sheet_name = f"MC_Tree_{i}"
+
+        trees[sheet_name] = model_json
+        envelope = json.dumps({"_v": 2, "trees": trees})
+
+        try:
+            store = book.sheets[STORE_SHEET_NAME]
+        except Exception:
+            store = book.sheets.add(STORE_SHEET_NAME)
+        # Write chunked across row 1; clear leftover columns.
+        col = 1
+        pos = 0
+        while pos < len(envelope) or col == 1:
+            chunk = envelope[pos:pos + _MAX_CELL_CHARS]
+            store.range((1, col)).value = chunk
+            pos += _MAX_CELL_CHARS
+            col += 1
+            if pos >= len(envelope):
+                break
+        for clear_col in range(col, col + 100):
+            cell = store.range((1, clear_col))
+            if cell.value in (None, ""):
+                break
+            cell.value = None
+        try:
+            store.api.Visible = 2  # xlSheetVeryHidden
+        except Exception:
+            pass
+        return sheet_name
+
+    def render_tree(self, sheet_name: str, workbook: str | None = None) -> None:
+        """Draw a stored tree by name via ModelChoice's renderer
+        (``MC_RenderStoredTree``). Requires the add-in loaded."""
+        book = self._book(workbook)
+        try:
+            book.activate()
+        except Exception:
+            pass
+        try:
+            book.app.api.Run("MC_RenderStoredTree", sheet_name)
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "MC_RenderStoredTree could not run — is the ModelChoice add-in "
+                "loaded? (The tree JSON was stored regardless.)"
+            ) from exc
 
     def read_sheet(
         self,
