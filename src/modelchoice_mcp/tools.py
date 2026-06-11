@@ -14,6 +14,7 @@ from pydantic import Field
 from modelchoice_mcp.bridge import ModelChoiceBridge
 from modelchoice_mcp.schemas import (
     BranchView,
+    EvpiResult,
     NodeDiff,
     NodeResultView,
     NodeView,
@@ -245,11 +246,47 @@ def verify_rollback(
     )
 
 
+@mcp.tool(
+    description=(
+        "ModelChoice: Compute the Expected Value of Perfect Information (EVPI) "
+        "for the active decision tree — the most a decision-maker should pay "
+        "for perfect information about all uncertainties before deciding. "
+        "Drives ModelChoice's headless analysis (MC_EVPI_Auto) and reads the "
+        "result. Requires the ModelChoice add-in loaded in Excel with a tree "
+        "open. EVPI is not defined for MCDA models."
+    )
+)
+def run_evpi(workbook_name: str | None = None) -> EvpiResult:
+    r = get_bridge().run_evpi(workbook_name)
+    evpi = r.get("evpi")
+    if evpi is None:
+        interp = "EVPI could not be read."
+    elif evpi <= 1e-9:
+        interp = (
+            "EVPI is essentially zero — perfect information would not change the "
+            "optimal decision, so don't pay for more information."
+        )
+    else:
+        interp = (
+            f"Perfect information about all uncertainties is worth up to "
+            f"{evpi:,.2f}; that's the ceiling on what to spend gathering it."
+        )
+    return EvpiResult(
+        model_name=r.get("model_name"),
+        objective=r.get("objective"),
+        optimal_ev=r.get("optimal_ev"),
+        evpi=evpi,
+        value_with_perfect_info=r.get("value_with_perfect_info"),
+        interpretation=interp,
+    )
+
+
 __all__ = [
     "get_bridge",
     "get_tree",
     "list_trees",
     "roll_up",
+    "run_evpi",
     "set_bridge_for_testing",
     "verify_rollback",
 ]

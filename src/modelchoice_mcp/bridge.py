@@ -133,3 +133,44 @@ class ModelChoiceBridge:
             if isinstance(val, (int, float)) and not isinstance(val, bool):
                 out[node_id] = float(val)
         return out
+
+    def run_evpi(self, workbook: str | None = None) -> dict[str, Any]:
+        """Drive ModelChoice's headless EVPI command and read its result.
+
+        Activates the workbook, calls ``Application.Run("MC_EVPI_Auto")``
+        — which computes full-tree EVPI for the active tree and writes the
+        ``MC_EVPI`` sheet — then reads that sheet back. Requires the
+        ModelChoice add-in to be loaded in Excel and a tree to be active.
+        Raises ``ModelChoiceNotFoundError`` if the command produced no
+        result sheet (add-in not loaded, or no active tree)."""
+        book = self._book(workbook)
+        try:
+            book.activate()
+        except Exception:
+            pass
+        try:
+            book.app.api.Run("MC_EVPI_Auto")
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "MC_EVPI_Auto could not run — is the ModelChoice add-in loaded "
+                "in Excel, with a decision tree open?"
+            ) from exc
+        try:
+            sheet = book.sheets["MC_EVPI"]
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "EVPI ran but wrote no MC_EVPI sheet — check that a tree is the "
+                "active ModelChoice model."
+            ) from exc
+
+        def _num(cell: str) -> float | None:
+            v = sheet.range(cell).value
+            return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+        return {
+            "model_name": sheet.range("C4").value,
+            "objective": sheet.range("C5").value,
+            "optimal_ev": _num("C6"),
+            "evpi": _num("C7"),
+            "value_with_perfect_info": _num("C8"),
+        }

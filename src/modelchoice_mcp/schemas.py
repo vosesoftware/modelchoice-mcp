@@ -78,6 +78,25 @@ class NodeDiff(BaseModel):
     diff: float = Field(description="computed - cell.")
 
 
+class EvpiResult(BaseModel):
+    """Expected Value of Perfect Information for the active tree, produced
+    by ModelChoice's headless MC_EVPI_Auto command."""
+
+    model_name: str | None = None
+    objective: str | None = Field(default=None, description="'Maximize' or 'Minimize'.")
+    optimal_ev: float | None = Field(default=None, description="Rolled-back expected value.")
+    evpi: float | None = Field(
+        default=None,
+        description="Full-tree EVPI — the most you'd pay for perfect information.",
+    )
+    value_with_perfect_info: float | None = Field(
+        default=None, description="Optimal EV plus (or minus) the EVPI."
+    )
+    interpretation: str = Field(
+        description="Plain-English reading of the EVPI."
+    )
+
+
 class RollbackVerification(BaseModel):
     """Cross-check of our Python rollback against the EVs ModelChoice
     itself wrote into the MC_V_<nodeId> named ranges."""

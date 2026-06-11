@@ -10,6 +10,7 @@ import pytest
 
 from modelchoice_mcp import tools
 from modelchoice_mcp.schemas import (
+    EvpiResult,
     RollbackVerification,
     RollupResponse,
     TreeList,
@@ -45,6 +46,15 @@ class _FakeBridge:
 
     def read_node_values(self, workbook: str | None = None) -> dict[str, float]:
         return dict(self._node_values)
+
+    def run_evpi(self, workbook: str | None = None) -> dict[str, object]:
+        return {
+            "model_name": "Oil",
+            "objective": "Maximize",
+            "optimal_ev": 50.0,
+            "evpi": 25.0,
+            "value_with_perfect_info": 75.0,
+        }
 
 
 @pytest.fixture
@@ -131,3 +141,11 @@ def test_verify_rollback_not_rendered() -> None:
         assert "not rendered" in out.verdict.lower()
     finally:
         tools.set_bridge_for_testing(None)
+
+
+def test_run_evpi(bridge: _FakeBridge) -> None:
+    out = tools.run_evpi()
+    assert isinstance(out, EvpiResult)
+    assert out.evpi == 25.0 and out.optimal_ev == 50.0
+    assert out.value_with_perfect_info == 75.0
+    assert "25" in out.interpretation
