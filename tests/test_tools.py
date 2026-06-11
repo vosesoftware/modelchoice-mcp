@@ -374,6 +374,91 @@ def test_edit_tree_bad_target_raises() -> None:
         tools.set_bridge_for_testing(None)
 
 
+def test_edit_tree_add_option_flips_decision() -> None:
+    fake = _FakeBridge({"MC_Tree_1": _MODEL})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        # Baseline optimum is 'Sell' at EV 50. Add a 'License' strategy worth 60.
+        out = tools.edit_tree(
+            [EditOp(op="add_option", node_id="D", name="License", value=60)]
+        )
+        assert out.optimal_path == ["License"]
+        assert out.expected_value == 60.0
+        # An outcome terminal was auto-created and linked.
+        assert '"name": "License"' in out.model_json
+        assert '"T_License"' in out.model_json
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_add_branch_to_chance() -> None:
+    fake = _FakeBridge({"MC_Tree_1": _MODEL})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        out = tools.edit_tree(
+            [EditOp(op="add_branch", node_id="C", name="Marginal",
+                    value=0, probability=0.5)]
+        )
+        # C now has three outcomes (Dry, Wet, Marginal).
+        import json as _json
+        model = _json.loads(out.model_json)
+        assert len(model["Nodes"]["C"]["branches"]) == 3
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_add_branch_needs_probability() -> None:
+    from modelchoice_mcp.tree import TreeParseError
+
+    tools.set_bridge_for_testing(_FakeBridge({"MC_Tree_1": _MODEL}))  # type: ignore[arg-type]
+    try:
+        with pytest.raises(TreeParseError):
+            tools.edit_tree([EditOp(op="add_branch", node_id="C", name="Marginal", value=0)])
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_add_option_wrong_node_kind_raises() -> None:
+    from modelchoice_mcp.tree import TreeParseError
+
+    tools.set_bridge_for_testing(_FakeBridge({"MC_Tree_1": _MODEL}))  # type: ignore[arg-type]
+    try:
+        # 'add_option' onto a chance node should fail.
+        with pytest.raises(TreeParseError):
+            tools.edit_tree([EditOp(op="add_option", node_id="C", name="X", value=1)])
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_remove_branch() -> None:
+    fake = _FakeBridge({"MC_Tree_1": _MODEL})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        # Remove 'Sell'; only 'Drill' (-> chance EV -25) remains.
+        out = tools.edit_tree(
+            [EditOp(op="remove_branch", node_id="D", branch_name="Sell")]
+        )
+        assert out.optimal_path == ["Drill"]
+        assert out.expected_value == -25.0
+        assert '"name": "Sell"' not in out.model_json
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_edit_tree_remove_last_branch_raises() -> None:
+    from modelchoice_mcp.tree import TreeParseError
+
+    tools.set_bridge_for_testing(_FakeBridge({"MC_Tree_1": _MODEL}))  # type: ignore[arg-type]
+    try:
+        with pytest.raises(TreeParseError):
+            tools.edit_tree([
+                EditOp(op="remove_branch", node_id="D", branch_name="Sell"),
+                EditOp(op="remove_branch", node_id="D", branch_name="Drill"),
+            ])
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
 def test_run_decision_report_strategy(bridge: _FakeBridge) -> None:
     out = tools.run_decision_report("strategy_table")
     assert bridge.last_command == "MC_ExportStrategyTable_Auto"

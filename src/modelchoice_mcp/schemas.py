@@ -122,21 +122,42 @@ class EditOp(BaseModel):
 
     op: str = Field(
         description=(
-            "One of: 'set_probability', 'set_branch_value', 'set_terminal_value', "
-            "'rename_node', 'rename_branch', 'set_objective'."
+            "Value/label edits: 'set_probability', 'set_branch_value', "
+            "'set_terminal_value', 'rename_node', 'rename_branch', 'set_objective'. "
+            "Structural edits: 'add_option' (new option on a decision node), "
+            "'add_branch' (new outcome on a chance node), 'remove_branch' "
+            "(drop an option/outcome by name)."
         )
     )
     node_id: str | None = Field(default=None, description="Target node id (most ops).")
     branch_name: str | None = Field(
-        default=None, description="Target branch/option name (branch-level ops)."
+        default=None,
+        description="Target branch/option name (branch-level ops, incl. remove_branch).",
     )
     value: float | None = Field(
         default=None,
-        description="New number — probability, branch cash flow, or terminal payoff.",
+        description=(
+            "New number — probability, branch cash flow, or terminal payoff; "
+            "for add_option/add_branch it is the new branch's cash flow (default 0)."
+        ),
     )
-    name: str | None = Field(default=None, description="New label for a rename op.")
+    name: str | None = Field(
+        default=None,
+        description="New label — for a rename op, or the new branch/option name on add_*.",
+    )
     maximize: bool | None = Field(
         default=None, description="New objective for 'set_objective' (true=maximize)."
+    )
+    child_id: str | None = Field(
+        default=None,
+        description=(
+            "For add_option/add_branch: id of the node the new branch leads to. "
+            "Omit to auto-create a new terminal outcome."
+        ),
+    )
+    probability: float | None = Field(
+        default=None,
+        description="For add_branch on a chance node: the new outcome's probability.",
     )
 
 

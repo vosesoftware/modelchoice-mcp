@@ -203,6 +203,54 @@ def _apply_edits(tree: DecisionTree, edits: list[EditOp]) -> DecisionTree:
                     f"node {e.node_id!r} has no branch named {e.branch_name!r}."
                 )
             nodes[e.node_id] = dataclasses.replace(node, branches=new_branches)
+        elif op in ("add_option", "add_branch"):
+            want_kind = "decision" if op == "add_option" else "chance"
+            label = "option" if op == "add_option" else "outcome"
+            if node.kind != want_kind:
+                raise TreeParseError(
+                    f"{op!r} needs a {want_kind} node, but {e.node_id!r} is {node.kind}."
+                )
+            if not e.name:
+                raise TreeParseError(f"{op!r} needs `name` for the new {label}.")
+            if any(b.name == e.name for b in node.branches):
+                raise TreeParseError(
+                    f"node {e.node_id!r} already has a branch named {e.name!r}."
+                )
+            if op == "add_branch" and e.probability is None:
+                raise TreeParseError("add_branch needs `probability` for a chance outcome.")
+
+            # Resolve the child: link an existing node, or auto-create a terminal.
+            if e.child_id is not None:
+                if e.child_id not in nodes:
+                    raise TreeParseError(f"{op!r}: child node {e.child_id!r} does not exist.")
+                child_id = e.child_id
+            else:
+                child_id = _fresh_terminal_id(nodes, e.name)
+                nodes[child_id] = Node(
+                    id=child_id, name=e.name, kind="terminal", value=0.0
+                )
+
+            new_branch = Branch(
+                name=e.name,
+                child_id=child_id,
+                value=e.value or 0.0,
+                probability=(e.probability if op == "add_branch" else None),
+            )
+            nodes[e.node_id] = dataclasses.replace(
+                node, branches=[*node.branches, new_branch]
+            )
+        elif op in ("remove_branch", "remove_option"):
+            if not any(b.name == e.branch_name for b in node.branches):
+                raise TreeParseError(
+                    f"node {e.node_id!r} has no branch named {e.branch_name!r}."
+                )
+            if len(node.branches) <= 1:
+                raise TreeParseError(
+                    f"can't remove the last branch of {e.node_id!r} — a decision/chance "
+                    "node needs at least one."
+                )
+            kept = [b for b in node.branches if b.name != e.branch_name]
+            nodes[e.node_id] = dataclasses.replace(node, branches=kept)
         else:
             raise TreeParseError(f"unknown edit op {e.op!r}.")
 
@@ -211,13 +259,30 @@ def _apply_edits(tree: DecisionTree, edits: list[EditOp]) -> DecisionTree:
     )
 
 
+def _fresh_terminal_id(nodes: dict[str, Node], label: str) -> str:
+    """A node id not already in `nodes`, derived from a label."""
+    slug = "".join(c if c.isalnum() else "_" for c in label).strip("_") or "node"
+    base = f"T_{slug}"
+    if base not in nodes:
+        return base
+    i = 1
+    while f"{base}_{i}" in nodes:
+        i += 1
+    return f"{base}_{i}"
+
+
 @mcp.tool(
     description=(
         "ModelChoice: Edit an existing decision tree in place — change "
         "probabilities, branch cash flows, terminal payoffs, node/branch "
-        "labels, or the maximize/minimize objective — then re-roll it. Pass "
-        "`edits` as a list of operations ('set_probability', 'set_branch_value', "
-        "'set_terminal_value', 'rename_node', 'rename_branch', 'set_objective'). "
+        "labels, the objective, OR add/remove whole options and outcomes — then "
+        "re-roll it. Pass `edits` as a list of operations. Value/label ops: "
+        "'set_probability', 'set_branch_value', 'set_terminal_value', "
+        "'rename_node', 'rename_branch', 'set_objective'. Structural ops: "
+        "'add_option' (new strategy on a decision node — give node_id, name, "
+        "value; omit child_id to auto-create its outcome), 'add_branch' (new "
+        "outcome on a chance node — also needs probability), 'remove_branch' "
+        "(drop an option/outcome by branch_name). "
         "Reads the named tree, applies the edits, validates by rolling back, and "
         "returns the new EV + optimal policy. dry_run=True (default) previews; "
         "dry_run=False writes and re-renders. The 'tweak it by talking' path."
