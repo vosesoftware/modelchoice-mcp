@@ -23,7 +23,8 @@ mcp = FastMCP(
     ),
 )
 
-# Side-effect import registers every @mcp.tool. Must come after `mcp`.
-from modelchoice_mcp import tools  # noqa: E402, F401
+# Side-effect imports register every @mcp.tool / @mcp.prompt. Must come
+# after `mcp` is constructed.
+from modelchoice_mcp import prompts, tools  # noqa: E402, F401
 
 __all__ = ["__version__", "mcp"]

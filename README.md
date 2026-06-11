@@ -21,6 +21,8 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `run_sensitivity` | Run one-way sensitivity and return the tornado-ordered report (which assumptions the decision is most sensitive to) + baseline EV + sheets. |
 | `read_sheet` | Read a result sheet's cells back (numbers / text), e.g. the robustness verdict or a sensitivity report. |
 
+**Prompt:** `/design-decision-tree` walks an analyst through building a tree from a description (or pasted data) and analysing it.
+
 Run it: `uv run python -m modelchoice_mcp` (stdio), or wire `modelchoice-mcp` into Claude Desktop like any MCP server.
 
 ## How it works

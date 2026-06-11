@@ -7,7 +7,7 @@ from modelchoice_mcp.server import mcp
 
 
 def test_version_set() -> None:
-    assert __version__ == "0.0.6"
+    assert __version__ == "0.0.7"
 
 
 def test_server_name() -> None:
@@ -22,3 +22,8 @@ async def test_read_tools_registered() -> None:
 async def test_tool_descriptions_have_brand_prefix() -> None:
     for t in await mcp.list_tools():
         assert (t.description or "").startswith("ModelChoice:")
+
+
+async def test_design_prompt_registered() -> None:
+    names = {p.name for p in await mcp.list_prompts()}
+    assert "design-decision-tree" in names
