@@ -179,6 +179,59 @@ class ModelChoiceBridge:
             "value_with_perfect_info": _num("C8"),
         }
 
+    def run_evii(
+        self,
+        chance_node: str,
+        likelihoods: list[list[float]],
+        test_cost: float = 0.0,
+        signals: list[str] | None = None,
+        test_name: str = "Test",
+        workbook: str | None = None,
+    ) -> dict[str, Any]:
+        """Drive ModelChoice's headless EVII command and read its result.
+
+        Builds a JSON test specification (target chance node, likelihood
+        matrix P(signal|state), test cost, optional signal names) and calls
+        ``Application.Run("MC_EVII_Auto", specJson)`` — which writes the
+        ``MC_EVII`` report sheet — then reads that sheet back. Requires the
+        ModelChoice add-in loaded with a tree open. Raises
+        ``ModelChoiceNotFoundError`` if the command produced no result sheet
+        (add-in not loaded, no active tree, or the chance node wasn't found)."""
+        book = self._book(workbook)
+        try:
+            book.activate()
+        except Exception:
+            pass
+
+        spec: dict[str, Any] = {
+            "chanceNode": chance_node,
+            "likelihoods": likelihoods,
+            "testCost": test_cost,
+            "testName": test_name,
+        }
+        if signals:
+            spec["signals"] = signals
+
+        try:
+            book.app.api.Run("MC_EVII_Auto", json.dumps(spec))
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "MC_EVII_Auto could not run — is the ModelChoice add-in loaded "
+                "in Excel, with a decision tree open?"
+            ) from exc
+        try:
+            book.sheets["MC_EVII"]
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                f"EVII ran but wrote no MC_EVII sheet — check that '{chance_node}' is "
+                "a chance node in the active tree and the likelihood matrix matches "
+                "its number of states."
+            ) from exc
+
+        rows = self.read_sheet("MC_EVII", workbook)
+        after = [s.name for s in book.sheets]
+        return {"rows": rows, "sheets": after}
+
     def run_analysis(self, command_name: str, workbook: str | None = None) -> dict[str, Any]:
         """Drive a ModelChoice headless analysis command (an ``MC_*_Auto``
         ExcelCommand) via ``Application.Run`` and report which result

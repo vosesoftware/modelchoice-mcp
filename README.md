@@ -4,7 +4,7 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.9` — Phase 3 (build + drive).** 12 tools: build_tree / edit_tree, read + roll + verify, plus run_evpi / run_robustness / run_sensitivity / run_decision_report / run_analysis / read_sheet over ModelChoice's headless commands.
+> **Status: `0.0.10` — Phase 3 (build + drive).** 13 tools: build_tree / edit_tree, read + roll + verify, plus run_evpi / run_evii / run_robustness / run_sensitivity / run_decision_report / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
@@ -17,6 +17,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `roll_up` | Roll the tree back to its expected values and **optimal policy** — the decision recommendation, in plain English. |
 | `verify_rollback` | Cross-check our rollback against the `MC_V_<id>` cells ModelChoice itself wrote — a correctness guarantee when the tree has been rendered. |
 | `run_evpi` | Expected Value of Perfect Information for the active tree — the most you'd pay for perfect information before deciding. Drives ModelChoice's headless `MC_EVPI_Auto`. |
+| `run_evii` | Expected Value of Imperfect Information for a specific **test** — pass the target chance node and a likelihood matrix P(signal\|state); returns EVII, its net value after cost (worth running?), and the EVPI ceiling. Drives `MC_EVII_Auto`. |
 | `run_analysis` | Run any decision-analysis (`robustness`, `sensitivity`, `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, `risk_profile`, `evpi`) and report the result sheets it produced. |
 | `run_robustness` | Run the robustness ("break the decision") analysis and return a structured read — verdict, score, and the minimum input change that flips the decision. |
 | `run_sensitivity` | Run one-way sensitivity and return the tornado-ordered report (which assumptions the decision is most sensitive to) + baseline EV + sheets. |
@@ -41,7 +42,7 @@ The Python roller is validated against ModelChoice's own authoritative C# test (
 - **Phase 0 (done):** the read + rollback engine — parse `_MC_Store`, reconstruct each tree, roll back to EV + optimal policy. Validated against ModelChoice's own C# rollback test.
 - **Phase 1 (done):** the MCP server — `list_trees`, `get_tree`, `roll_up`, proven live against a real workbook.
 - **Phase 1b (done):** `verify_rollback` cross-checks our EVs against the `MC_V_<id>` named ranges; CI (ruff + mypy + pytest) and a tag-driven PyPI release pipeline; wheel + sdist build. *(First publish awaits a PyPI trusted-publisher; the live `MC_V_` cross-check awaits a real rendered tree.)*
-- **Phase 2 (in progress):** drive analyses. ModelChoice already ships headless `MC_*_Auto` ExcelCommands for most analyses (robustness, sensitivity, strategy table, policy, decision brief, MCDA, risk profile); `run_analysis` + `read_sheet` drive and read any of them. EVPI had no standalone command, so `MC_EVPI_Auto` was added (ModelChoice, AB#2558) with the `run_evpi` tool. Live verification + richer per-analysis result parsing are the remaining work.
+- **Phase 2 (in progress):** drive analyses. ModelChoice already ships headless `MC_*_Auto` ExcelCommands for most analyses (robustness, sensitivity, strategy table, policy, decision brief, MCDA, risk profile); `run_analysis` + `read_sheet` drive and read any of them. EVPI and EVII had no standalone commands, so `MC_EVPI_Auto` (AB#2558) and `MC_EVII_Auto` (AB#2568) were added with the `run_evpi` / `run_evii` tools. Live verification + richer per-analysis result parsing are the remaining work.
 - **Phase 3:** build/edit trees — write the model JSON into `_MC_Store` and trigger a re-render.
 
 ## Architecture

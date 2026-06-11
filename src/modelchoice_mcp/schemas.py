@@ -220,6 +220,40 @@ class DecisionReport(BaseModel):
     note: str
 
 
+class EviiResult(BaseModel):
+    """Expected Value of Imperfect Information (EVII / EVSI) for a specific
+    test, produced by ModelChoice's headless MC_EVII_Auto command. Unlike
+    EVPI, EVII is always relative to a test — a target chance node and a
+    likelihood matrix P(signal|state)."""
+
+    chance_node: str = Field(description="The chance node the test informs.")
+    test_name: str
+    prior_ev: float | None = Field(
+        default=None, description="EV under the original (prior) probabilities."
+    )
+    evpi_upper_bound: float | None = Field(
+        default=None, description="EVPI — the perfect-information ceiling EVII cannot exceed."
+    )
+    evii: float | None = Field(
+        default=None, description="Value of the imperfect test's information (before its cost)."
+    )
+    test_cost: float | None = None
+    net_value: float | None = Field(
+        default=None, description="EVII minus test cost. Positive => the test is worth running."
+    )
+    worthwhile: bool | None = Field(
+        default=None, description="True when net_value > 0."
+    )
+    recommendation: str | None = Field(
+        default=None, description="ModelChoice's plain-English recommendation."
+    )
+    report_rows: list[list[Any]] = Field(
+        description="Rows of the MC_EVII sheet (key values, per-signal detail, likelihood matrix)."
+    )
+    sheets: list[str] = Field(description="Report sheets produced (MC_EVII).")
+    interpretation: str = Field(description="Plain-English reading of the EVII result.")
+
+
 class SensitivityReport(BaseModel):
     """Read of ModelChoice's one-way sensitivity analysis. Variables are
     reported tornado-ordered (largest EV swing first)."""

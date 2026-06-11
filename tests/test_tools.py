@@ -13,6 +13,7 @@ from modelchoice_mcp.schemas import (
     BranchSpec,
     BuildTreeResult,
     EditOp,
+    EviiResult,
     EvpiResult,
     NodeSpec,
     RollbackVerification,
@@ -71,6 +72,30 @@ class _FakeBridge:
                 "MC_StrategyTable", "MC_StratRegions",
             ],
         }
+
+    def run_evii(self, chance_node: str, likelihoods: list[list[float]],
+                 test_cost: float = 0.0, signals: list[str] | None = None,
+                 test_name: str = "Test", workbook: str | None = None) -> dict[str, object]:
+        self.evii_args = (chance_node, likelihoods, test_cost, signals, test_name)
+        # Mimic the MC_EVII sheet layout: page header (1-5), Key Values
+        # section (6), header (7), data rows 8-12, blank, recommendation.
+        rows: list[list[object]] = [
+            [None, "ModelChoice — EVII", None],
+            [None, "Performed by …", None],
+            [None, "Date …", None],
+            [None, "Test …", None],
+            [None, None, None],
+            [None, "Key Values", None],
+            [None, "Metric", "Value"],
+            [None, "Prior EV", "100.00"],
+            [None, "EVPI (upper bound)", "50.00"],
+            [None, "EVII (test value)", "30.00"],
+            [None, "Test cost", "5.00"],
+            [None, "Net value", "25.00"],
+            [None, None, None],
+            [None, "The test is worthwhile.", None],
+        ]
+        return {"rows": rows, "sheets": ["MC_Tree_1", "MC_EVII"]}
 
     def write_tree(self, model_json: str, sheet_name: str | None = None,
                    workbook: str | None = None) -> str:
@@ -182,6 +207,33 @@ def test_run_evpi(bridge: _FakeBridge) -> None:
     assert out.evpi == 25.0 and out.optimal_ev == 50.0
     assert out.value_with_perfect_info == 75.0
     assert "25" in out.interpretation
+
+
+def test_run_evii_parses_key_values(bridge: _FakeBridge) -> None:
+    out = tools.run_evii("Geology", [[0.8, 0.2], [0.3, 0.7]], test_cost=5.0)
+    assert isinstance(out, EviiResult)
+    assert out.prior_ev == 100.0
+    assert out.evpi_upper_bound == 50.0
+    assert out.evii == 30.0
+    assert out.test_cost == 5.0
+    assert out.net_value == 25.0
+    assert out.worthwhile is True
+    assert out.recommendation == "The test is worthwhile."
+    assert out.sheets == ["MC_EVII"]
+    assert "worth running" in out.interpretation
+
+
+def test_run_evii_passes_spec_through(bridge: _FakeBridge) -> None:
+    tools.run_evii(
+        "Geology", [[0.9, 0.1], [0.2, 0.8]],
+        test_cost=12.0, signals=["Pos", "Neg"], test_name="Seismic",
+    )
+    chance_node, likelihoods, cost, signals, name = bridge.evii_args
+    assert chance_node == "Geology"
+    assert likelihoods == [[0.9, 0.1], [0.2, 0.8]]
+    assert cost == 12.0
+    assert signals == ["Pos", "Neg"]
+    assert name == "Seismic"
 
 
 def test_run_analysis_maps_friendly_name(bridge: _FakeBridge) -> None:

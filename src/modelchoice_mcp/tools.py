@@ -19,6 +19,7 @@ from modelchoice_mcp.schemas import (
     BuildTreeResult,
     DecisionReport,
     EditOp,
+    EviiResult,
     EvpiResult,
     KeyValue,
     NodeDiff,
@@ -507,6 +508,127 @@ def run_evpi(workbook_name: str | None = None) -> EvpiResult:
     )
 
 
+def _parse_money(value: Any) -> float | None:
+    """Parse a number from a report cell. The MC_EVII renderer writes values
+    as culture-formatted text (e.g. '1,234.56'), so accept strings with
+    thousands separators as well as native numbers."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        text = value.strip().replace(",", "").replace(" ", "")
+        if not text:
+            return None
+        try:
+            return float(text)
+        except ValueError:
+            return None
+    return None
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Compute the Expected Value of Imperfect Information "
+        "(EVII / EVSI) for a specific test on the active tree — how much a "
+        "real, imperfect information source is worth before you decide. Unlike "
+        "EVPI, EVII needs a test spec: `chance_node` (the uncertainty the test "
+        "informs), `likelihood_matrix` = P(signal|state) with one ROW per state "
+        "of that node (in branch order) and one COLUMN per test signal (each row "
+        "sums to 1), an optional `test_cost`, and optional `signals` names. "
+        "Returns EVII, its net value after cost (positive ⇒ worth running), the "
+        "EVPI ceiling, and the recommendation. Drives ModelChoice's headless "
+        "MC_EVII_Auto; requires the add-in loaded with a tree open. Not defined "
+        "for MCDA models."
+    )
+)
+def run_evii(
+    chance_node: Annotated[
+        str, Field(description="Name of the chance node whose states the test informs.")
+    ],
+    likelihood_matrix: Annotated[
+        list[list[float]],
+        Field(
+            description=(
+                "P(signal|state): one row per state (in the node's branch order), "
+                "one column per signal; each row sums to 1."
+            )
+        ),
+    ],
+    test_cost: Annotated[
+        float, Field(description="Cost of running the test. Default 0.")
+    ] = 0.0,
+    signals: Annotated[
+        list[str] | None,
+        Field(description="Optional signal names; defaults to Signal1..N."),
+    ] = None,
+    test_name: Annotated[
+        str, Field(description="Optional test label for the report. Default 'Test'.")
+    ] = "Test",
+    workbook_name: str | None = None,
+) -> EviiResult:
+    bridge = get_bridge()
+    r = bridge.run_evii(
+        chance_node, likelihood_matrix, test_cost, signals, test_name, workbook_name
+    )
+    rows: list[list[Any]] = r.get("rows", [])
+    sheets = [s for s in r.get("sheets", []) if s.startswith("MC_EVII")]
+
+    def _cell(row_idx: int, col_idx: int) -> Any:
+        if 0 <= row_idx < len(rows):
+            row = rows[row_idx]
+            if 0 <= col_idx < len(row):
+                return row[col_idx]
+        return None
+
+    # Key Values block (renderer-fixed): labels in column B, values in C.
+    # Rows 8-12 (1-based) = data; column C = index 2.
+    prior_ev = _parse_money(_cell(7, 2))
+    evpi = _parse_money(_cell(8, 2))
+    evii = _parse_money(_cell(9, 2))
+    cost = _parse_money(_cell(10, 2))
+    net = _parse_money(_cell(11, 2))
+
+    # Recommendation: first non-empty column-B cell below the key-values table.
+    recommendation: str | None = None
+    for row in rows[12:]:
+        if len(row) > 1 and isinstance(row[1], str) and row[1].strip():
+            recommendation = row[1].strip()
+            break
+
+    worthwhile = (net > 0) if net is not None else None
+    if net is None or evii is None:
+        interp = "EVII could not be read from the MC_EVII report."
+    elif net > 0:
+        interp = (
+            f"The test is worth running: its information is worth {evii:,.2f}, "
+            f"exceeding its {cost or 0:,.2f} cost by {net:,.2f} (net). EVII can "
+            f"never beat the EVPI ceiling of {evpi:,.2f}."
+            if evpi is not None
+            else f"The test is worth running: net value {net:,.2f} after cost."
+        )
+    else:
+        interp = (
+            f"The test is not worth running: its information ({evii:,.2f}) does "
+            f"not justify its {cost or 0:,.2f} cost (net {net:,.2f})."
+        )
+
+    return EviiResult(
+        chance_node=chance_node,
+        test_name=test_name,
+        prior_ev=prior_ev,
+        evpi_upper_bound=evpi,
+        evii=evii,
+        test_cost=cost if cost is not None else test_cost,
+        net_value=net,
+        worthwhile=worthwhile,
+        recommendation=recommendation,
+        report_rows=rows,
+        sheets=sheets,
+        interpretation=interp,
+    )
+
+
 @mcp.tool(
     description=(
         "ModelChoice: Run a decision-analysis on the active tree and report the "
@@ -748,6 +870,7 @@ __all__ = [
     "roll_up",
     "run_analysis",
     "run_decision_report",
+    "run_evii",
     "run_evpi",
     "run_robustness",
     "run_sensitivity",
