@@ -51,12 +51,32 @@ class ModelChoiceBridge:
             raise ExcelNotRunningError(
                 "No running Excel instance found. Open the workbook in Excel first."
             )
+        self._harden_attach(app)
         if workbook is None:
             return app.books.active
         for b in app.books:
             if b.name == workbook:
                 return b
         raise ModelChoiceNotFoundError(f"Workbook {workbook!r} is not open.")
+
+    @staticmethod
+    def _harden_attach(app: Any) -> None:
+        """Make the COM attach robust against a loaded ModelChoice add-in.
+
+        xlwings binds to Excel by walking window handles
+        (``AccessibleObjectFromWindow`` → ``.Application``). Once ModelChoice's
+        Excel-DNA add-in is loaded, that path fails with OLE ``0x800A01A8``
+        (and can hang the call entirely). The ROT-based
+        ``GetActiveObject('Excel.Application')`` dispatch is reliable, so we
+        inject it as the app's COM object before any worksheet access. Done
+        per call so an Excel restart can't leave a stale handle. No-ops off
+        Windows or if win32com isn't importable."""
+        try:
+            import win32com.client  # type: ignore[import-untyped]
+
+            app.impl._xl = win32com.client.GetActiveObject("Excel.Application")
+        except Exception:
+            pass  # fall back to xlwings' default attach
 
     def read_store_raw(self, workbook: str | None = None) -> str:
         """Return the reassembled ``_MC_Store`` A1 payload, or '' if the
