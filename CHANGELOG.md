@@ -3,6 +3,15 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.23
+- **`set_input_distribution`** — assign an uncertainty (a ModelRisk `Vose*`
+  distribution) to a tree input (branch cash flow or probability), the way the
+  UI lets you type a distribution into a cell. Stored as the input's
+  user-formula and re-rendered, so it persists. This is the decision-tree half
+  of a Monte Carlo: once inputs are distributions, run the simulation with
+  **modelrisk-mcp** (it samples these cells and collects the tree's output
+  distribution). Pure `_MC_Store` edit + re-render — no new add-in command.
+
 ## 0.0.22
 - **`build_mcda`** — build a multi-criteria (MCDA) model: tree + criteria
   (ordinal options, weights, direction) + aggregation + per-terminal scores.

@@ -135,6 +135,12 @@ class _FakeBridge:
         ]
         return {"sheet": sheet_name or "MC_Tree_1", "rows": rows}
 
+    def set_input_formula(self, named_range: str, formula: str,
+                          sheet_name: str | None = None,
+                          workbook: str | None = None) -> str:
+        self.input_formula = (named_range, formula)
+        return sheet_name or "MC_Tree_1"
+
     def write_tree(self, model_json: str, sheet_name: str | None = None,
                    workbook: str | None = None) -> str:
         self.written_json = model_json
@@ -274,6 +280,43 @@ def test_build_control_panel_parses_inputs(bridge: _FakeBridge) -> None:
     assert "Drill?: Sell — value" in labels
     assert "Input" not in labels
     assert "persist across re-renders" in out.note
+
+
+def test_set_input_distribution_value(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import InputDistributionResult
+
+    out = tools.set_input_distribution("C", "Wet", "VoseNormal(50,10)", kind="value")
+    assert isinstance(out, InputDistributionResult)
+    # Wet -> child T2, value input => MC_BV_C_T2; leading '=' added.
+    assert out.named_range == "MC_BV_C_T2"
+    assert out.formula == "=VoseNormal(50,10)"
+    assert bridge.input_formula == ("MC_BV_C_T2", "=VoseNormal(50,10)")
+    assert out.tree == "MC_Tree_1"
+    assert "modelrisk-mcp" in out.note
+
+
+def test_set_input_distribution_probability(bridge: _FakeBridge) -> None:
+    out = tools.set_input_distribution(
+        "C", "Dry", "=VosePERT(0.3,0.5,0.7)", kind="probability"
+    )
+    # Dry -> child T1, probability input => MC_BP_C_T1; existing '=' kept.
+    assert out.named_range == "MC_BP_C_T1"
+    assert out.formula == "=VosePERT(0.3,0.5,0.7)"
+
+
+def test_set_input_distribution_rejects_probability_on_decision(bridge: _FakeBridge) -> None:
+    with pytest.raises(ValueError, match="chance node"):
+        tools.set_input_distribution("D", "Drill", "VoseUniform(0,1)", kind="probability")
+
+
+def test_set_input_distribution_unknown_branch(bridge: _FakeBridge) -> None:
+    with pytest.raises(ValueError, match="no branch"):
+        tools.set_input_distribution("C", "Nope", "VoseNormal(0,1)")
+
+
+def test_set_input_distribution_bad_kind(bridge: _FakeBridge) -> None:
+    with pytest.raises(ValueError, match=r"value.*probability"):
+        tools.set_input_distribution("C", "Wet", "VoseNormal(0,1)", kind="bogus")
 
 
 def test_run_utility(bridge: _FakeBridge) -> None:

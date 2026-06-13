@@ -500,6 +500,42 @@ class ModelChoiceBridge:
                 "loaded? (The tree JSON was stored regardless.)"
             ) from exc
 
+    def set_input_formula(
+        self,
+        named_range: str,
+        formula: str,
+        sheet_name: str | None = None,
+        workbook: str | None = None,
+    ) -> str:
+        """Assign a cell formula (e.g. a ``=VoseNormal(...)`` distribution) to a
+        tree input named range, the way the UI lets you type a distribution into
+        a branch value/probability cell. Records it in the stored model's
+        ``UserFormulas`` (so it survives re-renders) and re-renders the tree so
+        the formula lands in the cell. Returns the tree sheet name.
+
+        Pure ``_MC_Store`` edit + render — no special add-in command beyond the
+        existing MC_RenderStoredTree. ModelRisk (via modelrisk-mcp) then samples
+        the formula during simulation."""
+        raw = self.read_store_raw(workbook)
+        if not raw:
+            raise ModelChoiceNotFoundError("Workbook has no ModelChoice tree store.")
+        trees = parse_store(raw)
+        if sheet_name is None:
+            sheet_name = next(iter(trees))
+        if sheet_name not in trees:
+            raise ModelChoiceNotFoundError(
+                f"Tree {sheet_name!r} not found. Available: {', '.join(trees)}."
+            )
+        model = json.loads(trees[sheet_name])
+        uf = model.get("UserFormulas")
+        if not isinstance(uf, dict):
+            uf = {}
+        uf[named_range] = formula
+        model["UserFormulas"] = uf
+        self.write_tree(json.dumps(model), sheet_name=sheet_name, workbook=workbook)
+        self.render_tree(sheet_name, workbook)
+        return sheet_name
+
     def read_sheet(
         self,
         sheet_name: str,

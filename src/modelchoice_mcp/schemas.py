@@ -253,6 +253,24 @@ class McdaBuildResult(BaseModel):
     note: str
 
 
+class InputDistributionResult(BaseModel):
+    """Outcome of assigning an uncertainty (a Vose* distribution) to a tree
+    input — a branch value or probability — the way the ModelChoice UI lets
+    you type a distribution into a cell. The distribution is stored as the
+    cell's user-formula and re-rendered, ready for ModelRisk (via
+    modelrisk-mcp) to sample during a Monte Carlo simulation."""
+
+    tree: str = Field(description="Tree sheet the input belongs to.")
+    node_id: str = Field(description="Node whose branch/option the distribution was put on.")
+    outcome: str = Field(description="Branch/option label the distribution was assigned to.")
+    kind: str = Field(description="'value' (branch cash flow) or 'probability'.")
+    named_range: str = Field(
+        description="The MC_BV_/MC_BP_ named range now holding the distribution formula."
+    )
+    formula: str = Field(description="The cell formula assigned (e.g. '=VoseNormal(100,20)').")
+    note: str
+
+
 class TreeExport(BaseModel):
     """A tree's stored ModelChoice model JSON, for saving or sharing."""
 

@@ -24,6 +24,7 @@ from modelchoice_mcp.schemas import (
     EviiResult,
     EvpiResult,
     ImportResult,
+    InputDistributionResult,
     KeyValue,
     McdaBuildResult,
     McdaSpec,
@@ -1033,6 +1034,95 @@ def build_control_panel(
 
 @mcp.tool(
     description=(
+        "ModelChoice: Assign an UNCERTAINTY to a tree input — put a ModelRisk "
+        "`Vose*` distribution on a branch's cash flow or probability, the way the "
+        "ModelChoice UI lets you type a distribution into an input cell. Pass the "
+        "node id, the branch/option label, the distribution formula (e.g. "
+        "'VoseNormal(100,20)', 'VosePERT(80,100,150)'), and kind='value' (cash "
+        "flow) or 'probability'. The distribution is stored as the cell's "
+        "user-formula and re-rendered, so it survives edits. This is the "
+        "decision-tree half of a Monte Carlo: once inputs are distributions, run "
+        "the simulation with modelrisk-mcp (it samples these cells and collects "
+        "the tree's output distribution). Requires the add-in loaded with a tree "
+        "rendered. Branch values / probabilities only (not terminal payoffs)."
+    )
+)
+def set_input_distribution(
+    node_id: Annotated[str, Field(description="Node whose branch/option carries the input.")],
+    outcome: Annotated[
+        str, Field(description="The branch/option label to put the distribution on.")
+    ],
+    distribution: Annotated[
+        str,
+        Field(
+            description=(
+                "The ModelRisk distribution formula, e.g. 'VoseNormal(100,20)' or "
+                "'=VosePERT(80,100,150)'. A leading '=' is optional."
+            )
+        ),
+    ],
+    kind: Annotated[
+        str, Field(description="'value' (branch cash flow) or 'probability'.")
+    ] = "value",
+    tree_name: Annotated[
+        str | None, Field(description="Tree sheet name. Omit for the first tree.")
+    ] = None,
+    workbook_name: str | None = None,
+) -> InputDistributionResult:
+    k = kind.lower()
+    if k not in ("value", "probability"):
+        raise ValueError(f"kind must be 'value' or 'probability', got {kind!r}.")
+
+    bridge = get_bridge()
+    trees = bridge.list_trees(workbook_name)
+    if tree_name is None:
+        tree_name = next(iter(trees))
+    if tree_name not in trees:
+        raise TreeParseError(f"no tree {tree_name!r}; available: {', '.join(trees)}.")
+
+    tree = parse_model(trees[tree_name])
+    node = tree.nodes.get(node_id)
+    if node is None:
+        raise ValueError(f"node {node_id!r} not found in {tree_name!r}.")
+    branch = next((b for b in node.branches if b.name == outcome), None)
+    if branch is None:
+        names = ", ".join(b.name for b in node.branches) or "(none)"
+        raise ValueError(
+            f"node {node_id!r} ({node.name!r}) has no branch {outcome!r}. "
+            f"Branches: {names}."
+        )
+    if k == "probability" and node.kind != "chance":
+        raise ValueError(
+            f"kind='probability' is only valid on a chance node; {node_id!r} is a "
+            f"{node.kind} node. Use kind='value' for a decision option's cash flow."
+        )
+
+    prefix = "MC_BV_" if k == "value" else "MC_BP_"
+    named_range = f"{prefix}{node_id}_{branch.child_id}"
+    formula = distribution.strip()
+    if not formula.startswith("="):
+        formula = "=" + formula
+
+    sheet = bridge.set_input_formula(named_range, formula, tree_name, workbook_name)
+
+    return InputDistributionResult(
+        tree=sheet,
+        node_id=node_id,
+        outcome=outcome,
+        kind=k,
+        named_range=named_range,
+        formula=formula,
+        note=(
+            f"Put {formula} on {node.name!r} → {outcome!r} ({named_range}). It's now "
+            "an uncertain input. Run the Monte Carlo with modelrisk-mcp's "
+            "run_simulation (track the root EV cell as the output) to get the "
+            "tree's outcome distribution."
+        ),
+    )
+
+
+@mcp.tool(
+    description=(
         "ModelChoice: Run a decision-analysis on the active tree and report the "
         "result sheets it produced. `analysis` is one of: 'risk_profile', "
         "'robustness' (how much inputs must change to flip the decision), "
@@ -1429,5 +1519,6 @@ __all__ = [
     "run_sensitivity",
     "run_utility",
     "set_bridge_for_testing",
+    "set_input_distribution",
     "verify_rollback",
 ]
