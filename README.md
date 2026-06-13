@@ -31,6 +31,8 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 
 **Prompt:** `/design-decision-tree` walks an analyst through building a tree from a description (or pasted data) and analysing it.
 
+**Resources:** `modelchoice://guide/*` — curated decision-analysis guidance (building trees, EVPI vs EVII, which analysis answers which question, common pitfalls) the model can read for grounding.
+
 Run it: `uv run python -m modelchoice_mcp` (stdio), or wire `modelchoice-mcp` into Claude Desktop like any MCP server.
 
 ## How it works
