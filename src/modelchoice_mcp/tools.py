@@ -8,6 +8,7 @@ a fake with ``set_bridge_for_testing`` to avoid touching COM.
 from __future__ import annotations
 
 import dataclasses
+import json
 from typing import Annotated, Any
 
 from pydantic import Field
@@ -24,6 +25,8 @@ from modelchoice_mcp.schemas import (
     EvpiResult,
     ImportResult,
     KeyValue,
+    McdaBuildResult,
+    McdaSpec,
     NodeDiff,
     NodeResultView,
     NodeView,
@@ -159,6 +162,104 @@ def build_tree(
         optimal_path=r.optimal_path,
         recommendation=rec,
         model_json=model_json,
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Build a MULTI-CRITERIA (MCDA) decision model — when the "
+        "choice isn't pure money. Give the tree structure (`tree`, same as "
+        "build_tree) plus `mcda`: the criteria (each with discrete ordinal "
+        "options worst→best, a weight, and a direction), the financial weight, "
+        "an aggregation method (weighted_sum / weighted_geometric / waspas), and "
+        "each terminal's option per criterion (`terminal_scores`). The tool "
+        "validates structure + weights + that every score references a real "
+        "criterion option. dry_run=True (default) previews; dry_run=False builds "
+        "the tree, sets MCDA mode, and renders — the add-in computes the "
+        "composite scores. Needs the add-in loaded (a build with the MCDA command)."
+    )
+)
+def build_mcda(
+    tree: TreeSpec,
+    mcda: McdaSpec,
+    dry_run: bool = True,
+    workbook_name: str | None = None,
+) -> McdaBuildResult:
+    t = _spec_to_tree(tree)
+    model_json = to_model_json(t)
+    parse_model(model_json)  # structural validation (cycles, missing children)
+
+    if not mcda.criteria:
+        raise ValueError("MCDA needs at least one criterion.")
+    crit_by_id: dict[str, Any] = {}
+    for c in mcda.criteria:
+        if len(c.options) < 2:
+            raise ValueError(f"criterion {c.id!r} needs >=2 options.")
+        crit_by_id[c.id] = c
+    weight_sum = mcda.financial_weight + sum(c.weight for c in mcda.criteria)
+
+    term_ids = {n.id for n in tree.nodes if n.type.lower() == "terminal"}
+    for tid, scores in mcda.terminal_scores.items():
+        if tid not in term_ids:
+            raise ValueError(f"terminal_scores references unknown terminal {tid!r}.")
+        for cid, opt in scores.items():
+            if cid not in crit_by_id:
+                raise ValueError(f"terminal {tid!r} scores unknown criterion {cid!r}.")
+            if opt not in crit_by_id[cid].options:
+                raise ValueError(
+                    f"terminal {tid!r} criterion {cid!r}: {opt!r} is not one of "
+                    f"{crit_by_id[cid].options}."
+                )
+
+    crit_names = [c.name for c in mcda.criteria]
+    scored = len(mcda.terminal_scores)
+    weight_note = (
+        "" if abs(weight_sum - 1.0) < 1e-3 else f" (weights sum {weight_sum:.3f}, not 1.0)"
+    )
+
+    if dry_run:
+        return McdaBuildResult(
+            written=False,
+            sheet=None,
+            node_count=len(t.nodes),
+            criteria=crit_names,
+            terminals_scored=scored,
+            note=(
+                f"Validated MCDA preview: {len(crit_names)} criteria, {scored} terminals "
+                f"scored{weight_note}. Composite scores are computed by the add-in on commit."
+            ),
+        )
+
+    bridge = get_bridge()
+    sheet = bridge.write_tree(model_json, workbook=workbook_name)
+    bridge.render_tree(sheet, workbook_name)
+    spec = {
+        "financialWeight": mcda.financial_weight,
+        "aggregation": mcda.aggregation,
+        "waspasLambda": mcda.waspas_lambda,
+        "criteria": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "weight": c.weight,
+                "maximize": c.maximize,
+                "options": c.options,
+            }
+            for c in mcda.criteria
+        ],
+        "terminalScores": mcda.terminal_scores,
+    }
+    bridge.apply_mcda(json.dumps(spec), workbook_name)
+    return McdaBuildResult(
+        written=True,
+        sheet=sheet,
+        node_count=len(t.nodes),
+        criteria=crit_names,
+        terminals_scored=scored,
+        note=(
+            f"Built MCDA model on {sheet!r}: {len(crit_names)} criteria, {scored} "
+            f"terminals scored, aggregation {mcda.aggregation}{weight_note}."
+        ),
     )
 
 
@@ -1307,6 +1408,7 @@ def read_sheet(
 
 __all__ = [
     "build_control_panel",
+    "build_mcda",
     "build_tree",
     "edit_tree",
     "export_tree_json",

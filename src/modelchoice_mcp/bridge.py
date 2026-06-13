@@ -361,6 +361,25 @@ class ModelChoiceBridge:
             rows = self.read_sheet(target, workbook, max_rows=60, max_cols=3)
         return {"sheet": target, "rows": rows}
 
+    def apply_mcda(self, spec_json: str, workbook: str | None = None) -> None:
+        """Turn the active (rendered) tree into an MCDA model by driving
+        ``Application.Run("MC_ApplyMcda_Auto", spec_json)`` — sets the criteria,
+        weights, aggregation, and per-terminal scores, then re-renders. Requires
+        the add-in loaded with the active tree built (a build that includes the
+        MCDA command)."""
+        book = self._book(workbook)
+        try:
+            book.activate()
+        except Exception:
+            pass
+        try:
+            book.app.api.Run("MC_ApplyMcda_Auto", spec_json)
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "MC_ApplyMcda_Auto could not run — is the ModelChoice add-in loaded "
+                "with the active tree built? (Needs a build with the MCDA command.)"
+            ) from exc
+
     def import_precisiontree(self, file_path: str) -> dict[str, Any]:
         """Drive ModelChoice's headless PrecisionTree import. Calls
         ``Application.Run("MC_ImportPrecisionTree_Auto", file_path)`` — which

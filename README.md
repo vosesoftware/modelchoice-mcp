@@ -4,13 +4,14 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.21` — Phase 3 (build + drive).** 20 tools: build_tree / edit_tree (incl. add/remove options & outcomes) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
+> **Status: `0.0.22` — Phase 3 (build + drive).** 21 tools: build_tree / build_mcda / edit_tree (incl. add/remove options & outcomes) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
 | Tool | What it does |
 |---|---|
 | `build_tree` | **Build a tree from a structured description** and write it into Excel (dry-run by default). Validates + rolls it back so you confirm the recommendation before writing. The build-from-a-prompt path. |
+| `build_mcda` | **Build a multi-criteria (MCDA) model** — for choices that aren't pure money. Give the tree + criteria (ordinal options, weights, direction), aggregation, and each terminal's option per criterion; the add-in computes the composite scores. Drives `MC_ApplyMcda_Auto`. |
 | `edit_tree` | **Tweak an existing tree** — change probabilities, payoffs, labels, or the objective, **add or remove whole options/outcomes** (`add_option` / `add_branch` / `remove_branch`), then re-roll it (dry-run by default). The "tweak it by talking" path. |
 | `build_control_panel` | **Lift the tree's inputs into a control panel** at the top of the sheet — every probability and cash flow as a labelled cell, with the tree linked back to it, so you drive the whole model from one input block. Drives `MC_BuildControlPanel_Auto`. |
 | `export_tree_json` / `import_tree_json` | Round-trip a tree's raw ModelChoice JSON — export to save/share/version, import (validated) to write it back into a workbook. |

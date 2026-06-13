@@ -211,6 +211,48 @@ class ScenarioComparison(BaseModel):
     note: str
 
 
+class CriterionSpec(BaseModel):
+    """One non-financial MCDA criterion with discrete ordinal options."""
+
+    id: str = Field(description="Stable criterion id (e.g. 'safety').")
+    name: str = Field(description="Display name.")
+    weight: float = Field(description="Relative weight 0..1 (financial + all criteria sum to 1).")
+    maximize: bool = Field(
+        default=True, description="True = last option is best; False = first option is best."
+    )
+    options: list[str] = Field(description="Ordered discrete options (>=2), worst to best.")
+
+
+class McdaSpec(BaseModel):
+    """The multi-criteria layer for build_mcda: criteria, weights, aggregation,
+    and each terminal's per-criterion option selections."""
+
+    criteria: list[CriterionSpec] = Field(description="Non-financial criteria.")
+    financial_weight: float = Field(
+        default=0.5, description="Weight of the auto-included financial (payoff) criterion."
+    )
+    aggregation: str = Field(
+        default="weighted_sum",
+        description="weighted_sum | weighted_geometric | waspas.",
+    )
+    waspas_lambda: float = Field(default=0.5, description="WASPAS blend (only for waspas).")
+    terminal_scores: dict[str, dict[str, str]] = Field(
+        default_factory=dict,
+        description="Per terminal: {terminal_id: {criterion_id: option_label}}.",
+    )
+
+
+class McdaBuildResult(BaseModel):
+    """Outcome of building an MCDA model."""
+
+    written: bool = Field(description="True if written + rendered (else a validated preview).")
+    sheet: str | None = None
+    node_count: int
+    criteria: list[str] = Field(description="Criterion names defined.")
+    terminals_scored: int
+    note: str
+
+
 class TreeExport(BaseModel):
     """A tree's stored ModelChoice model JSON, for saving or sharing."""
 

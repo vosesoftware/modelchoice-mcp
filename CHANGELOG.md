@@ -3,6 +3,13 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.22
+- **`build_mcda`** — build a multi-criteria (MCDA) model: tree + criteria
+  (ordinal options, weights, direction) + aggregation + per-terminal scores.
+  Validates structure/weights/scores in Python; drives the new
+  `MC_ApplyMcda_Auto` (AB#2637) to set MCDA mode + render. v1 = direct weights
+  (AHP follow-up). No-op until that add-in build ships.
+
 ## 0.0.21
 - **`run_utility`** — risk-attitude (utility) rollback: certainty equivalent,
   risk premium, and the optimal decision under risk aversion vs EV. Drives the

@@ -92,6 +92,9 @@ class _FakeBridge:
         self.imported_path = file_path
         return {"workbook": "oil_ModelChoice.xlsx", "trees": ["MC_Tree_1"]}
 
+    def apply_mcda(self, spec_json: str, workbook: str | None = None) -> None:
+        self.mcda_spec = spec_json
+
     def run_evii(self, chance_node: str, likelihoods: list[list[float]],
                  test_cost: float = 0.0, signals: list[str] | None = None,
                  test_name: str = "Test", workbook: str | None = None) -> dict[str, object]:
@@ -489,6 +492,65 @@ def test_import_tree_json_bad_json_raises() -> None:
             tools.import_tree_json("{not valid model json}")
     finally:
         tools.set_bridge_for_testing(None)
+
+
+def _mcda_specs():
+    from modelchoice_mcp.schemas import BranchSpec, CriterionSpec, McdaSpec, NodeSpec, TreeSpec
+
+    tree = TreeSpec(
+        root_id="D", model_name="Vendor choice", maximize=True,
+        nodes=[
+            NodeSpec(id="D", type="decision", name="Vendor", branches=[
+                BranchSpec(name="Acme", child_id="T1"),
+                BranchSpec(name="Globex", child_id="T2")]),
+            NodeSpec(id="T1", type="terminal", name="Acme outcome", value=0),
+            NodeSpec(id="T2", type="terminal", name="Globex outcome", value=0),
+        ],
+    )
+    mcda = McdaSpec(
+        criteria=[CriterionSpec(id="safety", name="Safety", weight=0.5, maximize=True,
+                                options=["Low", "Medium", "High"])],
+        financial_weight=0.5,
+        aggregation="weighted_sum",
+        terminal_scores={"T1": {"safety": "Low"}, "T2": {"safety": "High"}},
+    )
+    return tree, mcda
+
+
+def test_build_mcda_dry_run(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import McdaBuildResult
+
+    tree, mcda = _mcda_specs()
+    out = tools.build_mcda(tree, mcda)
+    assert isinstance(out, McdaBuildResult)
+    assert out.written is False
+    assert out.criteria == ["Safety"]
+    assert out.terminals_scored == 2
+    assert out.node_count == 3
+
+
+def test_build_mcda_commit() -> None:
+    fake = _FakeBridge({})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        tree, mcda = _mcda_specs()
+        out = tools.build_mcda(tree, mcda, dry_run=False)
+        assert out.written is True and out.sheet == "MC_Tree_1"
+        assert fake.rendered == "MC_Tree_1"
+        import json as _json
+        spec = _json.loads(fake.mcda_spec)
+        assert spec["financialWeight"] == 0.5
+        assert spec["criteria"][0]["id"] == "safety"
+        assert spec["terminalScores"] == {"T1": {"safety": "Low"}, "T2": {"safety": "High"}}
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_build_mcda_bad_option_raises(bridge: _FakeBridge) -> None:
+    tree, mcda = _mcda_specs()
+    mcda.terminal_scores = {"T1": {"safety": "Stellar"}}  # not a defined option
+    with pytest.raises(ValueError):
+        tools.build_mcda(tree, mcda)
 
 
 def test_run_scenarios_compares(bridge: _FakeBridge) -> None:
