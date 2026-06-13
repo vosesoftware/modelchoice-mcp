@@ -177,6 +177,40 @@ class BuildTreeResult(BaseModel):
     )
 
 
+class ScenarioSpec(BaseModel):
+    """A named what-if scenario: a set of input edits applied together. Edits
+    are typically value changes (set_probability / set_branch_value /
+    set_terminal_value), the same ops edit_tree uses."""
+
+    name: str = Field(description="Scenario label, e.g. 'Pessimistic' or 'Strong market'.")
+    edits: list[EditOp] = Field(description="Input overrides applied for this scenario.")
+
+
+class ScenarioOutcome(BaseModel):
+    name: str
+    expected_value: float = Field(description="Rolled-back EV under this scenario.")
+    optimal_path: list[str] = Field(description="Optimal decisions under this scenario.")
+    delta_vs_baseline: float = Field(description="Scenario EV minus the baseline EV.")
+    decision_changed: bool = Field(
+        description="True if the optimal decision differs from the baseline's."
+    )
+
+
+class ScenarioComparison(BaseModel):
+    """Side-by-side what-if comparison of the tree under several scenarios,
+    all rolled back in pure Python (no Excel needed)."""
+
+    tree: str
+    objective: str = Field(description="'maximize' or 'minimize'.")
+    baseline_ev: float
+    baseline_optimal_path: list[str]
+    scenarios: list[ScenarioOutcome]
+    best_scenario: str | None = Field(
+        default=None, description="Scenario with the best EV by the tree's objective."
+    )
+    note: str
+
+
 class AnalysisRun(BaseModel):
     """Result of driving a ModelChoice headless analysis command."""
 

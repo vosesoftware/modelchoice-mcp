@@ -29,6 +29,9 @@ from modelchoice_mcp.schemas import (
     RobustnessSummary,
     RollbackVerification,
     RollupResponse,
+    ScenarioComparison,
+    ScenarioOutcome,
+    ScenarioSpec,
     SensitivityReport,
     SheetData,
     TreeList,
@@ -471,6 +474,75 @@ def roll_up(
         optimal_path=r.optimal_path,
         recommendation=rec,
         nodes=nodes,
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: What-if scenario comparison. Give a list of named "
+        "`scenarios`, each a set of input `edits` (value changes — "
+        "set_probability / set_branch_value / set_terminal_value, the same ops "
+        "edit_tree uses). Each scenario is applied to a fresh copy of the tree "
+        "and rolled back; the tool returns each scenario's expected value, its "
+        "optimal decisions, the change vs the baseline, whether the optimal "
+        "decision flipped, and which scenario wins by the tree's objective. "
+        "Pure Python — reads the stored tree, no Excel writes, no add-in needed. "
+        "Pairs with build_control_panel: scenarios are sets of panel-input values."
+    )
+)
+def run_scenarios(
+    scenarios: Annotated[
+        list[ScenarioSpec],
+        Field(description="Named scenarios, each a bundle of input overrides."),
+    ],
+    tree_name: Annotated[
+        str | None, Field(description="Tree sheet name. Omit for the first tree.")
+    ] = None,
+    workbook_name: str | None = None,
+) -> ScenarioComparison:
+    bridge = get_bridge()
+    trees = bridge.list_trees(workbook_name)
+    if tree_name is None:
+        tree_name = next(iter(trees))
+    base = parse_model(trees[tree_name])
+    baseline = rollup(base)
+
+    outcomes: list[ScenarioOutcome] = []
+    for sc in scenarios:
+        t = _apply_edits(base, sc.edits)
+        r = rollup(t)
+        outcomes.append(
+            ScenarioOutcome(
+                name=sc.name,
+                expected_value=r.expected_value,
+                optimal_path=r.optimal_path,
+                delta_vs_baseline=r.expected_value - baseline.expected_value,
+                decision_changed=(r.optimal_path != baseline.optimal_path),
+            )
+        )
+
+    best: str | None = None
+    if outcomes:
+        chooser = max if base.maximize else min
+        best = chooser(outcomes, key=lambda o: o.expected_value).name
+
+    flips = [o.name for o in outcomes if o.decision_changed]
+    flip_note = (
+        f"Decision flips under: {', '.join(flips)}. "
+        if flips
+        else "Decision holds across all scenarios. "
+    )
+    best_note = f"Best by {'max' if base.maximize else 'min'} EV: {best}." if best else ""
+    note = f"Baseline EV {baseline.expected_value:,.2f}. " + flip_note + best_note
+
+    return ScenarioComparison(
+        tree=tree_name,
+        objective="maximize" if base.maximize else "minimize",
+        baseline_ev=baseline.expected_value,
+        baseline_optimal_path=baseline.optimal_path,
+        scenarios=outcomes,
+        best_scenario=best,
+        note=note,
     )
 
 
@@ -993,6 +1065,7 @@ __all__ = [
     "run_evii",
     "run_evpi",
     "run_robustness",
+    "run_scenarios",
     "run_sensitivity",
     "set_bridge_for_testing",
     "verify_rollback",

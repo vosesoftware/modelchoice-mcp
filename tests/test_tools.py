@@ -405,6 +405,30 @@ def test_edit_tree_bad_target_raises() -> None:
         tools.set_bridge_for_testing(None)
 
 
+def test_run_scenarios_compares(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import ScenarioComparison, ScenarioSpec
+
+    out = tools.run_scenarios([
+        ScenarioSpec(name="Wet likely", edits=[
+            EditOp(op="set_probability", node_id="C", branch_name="Wet", value=0.9),
+            EditOp(op="set_probability", node_id="C", branch_name="Dry", value=0.1)]),
+        ScenarioSpec(name="Sell cheaper", edits=[
+            EditOp(op="set_branch_value", node_id="D", branch_name="Sell", value=-30)]),
+    ])
+    assert isinstance(out, ScenarioComparison)
+    assert out.objective == "maximize"
+    assert out.baseline_ev == 50.0 and out.baseline_optimal_path == ["Sell"]
+    by_name = {s.name: s for s in out.scenarios}
+    # Wet 0.9: Drill EV = .9*50 + .1*-100 = 35 -> still < Sell 50, decision holds.
+    assert by_name["Wet likely"].expected_value == 50.0
+    assert by_name["Wet likely"].decision_changed is False
+    # Sell -30: chance EV -25 > -30, so Drill becomes optimal -> flip.
+    assert by_name["Sell cheaper"].expected_value == -25.0
+    assert by_name["Sell cheaper"].decision_changed is True
+    assert by_name["Sell cheaper"].delta_vs_baseline == -75.0
+    assert out.best_scenario == "Wet likely"
+
+
 def test_edit_tree_add_option_flips_decision() -> None:
     fake = _FakeBridge({"MC_Tree_1": _MODEL})
     tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]

@@ -4,7 +4,7 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.12` — Phase 3 (build + drive).** 14 tools: build_tree / edit_tree (incl. add/remove options & outcomes) / build_control_panel, read + roll + verify, plus run_evpi / run_evii / run_robustness / run_sensitivity / run_decision_report / run_analysis / read_sheet over ModelChoice's headless commands.
+> **Status: `0.0.14` — Phase 3 (build + drive).** 15 tools: build_tree / edit_tree (incl. add/remove options & outcomes) / build_control_panel, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_robustness / run_sensitivity / run_decision_report / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
@@ -17,6 +17,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `get_tree` | Full structure of one tree — decision / chance / terminal nodes, branches, probabilities, values. |
 | `roll_up` | Roll the tree back to its expected values and **optimal policy** — the decision recommendation, in plain English. |
 | `verify_rollback` | Cross-check our rollback against the `MC_V_<id>` cells ModelChoice itself wrote — a correctness guarantee when the tree has been rendered. |
+| `run_scenarios` | **What-if comparison** — give named scenarios (bundles of input changes); each is rolled back and compared to the baseline (EV, optimal decision, Δ, whether the decision flips, which scenario wins). Pure Python, no Excel needed. |
 | `run_evpi` | Expected Value of Perfect Information for the active tree — the most you'd pay for perfect information before deciding. Drives ModelChoice's headless `MC_EVPI_Auto`. |
 | `run_evii` | Expected Value of Imperfect Information for a specific **test** — pass the target chance node and a likelihood matrix P(signal\|state); returns EVII, its net value after cost (worth running?), and the EVPI ceiling. Drives `MC_EVII_Auto`. |
 | `run_analysis` | Run any decision-analysis (`robustness`, `sensitivity`, `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, `risk_profile`, `evpi`) and report the result sheets it produced. |
