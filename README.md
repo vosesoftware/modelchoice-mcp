@@ -21,6 +21,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `run_evpi` | Expected Value of Perfect Information for the active tree — the most you'd pay for perfect information before deciding. Drives ModelChoice's headless `MC_EVPI_Auto`. |
 | `run_risk_profile` | The **outcome distribution** for each decision option — expected value, min, max, std dev, plus the cumulative-probability table. Shows downside/upside, not just the average. Drives `MC_RiskProfile_Auto`. |
 | `run_evii` | Expected Value of Imperfect Information for a specific **test** — pass the target chance node and a likelihood matrix P(signal\|state); returns EVII, its net value after cost (worth running?), and the EVPI ceiling. Drives `MC_EVII_Auto`. |
+| `run_decision_report` | Run a report — `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, or `force_to_outcome` — and read it back (rows + label→value pairs + sheets) in one call. |
 | `run_analysis` | Run any decision-analysis (`robustness`, `sensitivity`, `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, `risk_profile`, `evpi`) and report the result sheets it produced. |
 | `run_robustness` | Run the robustness ("break the decision") analysis and return a structured read — verdict, score, and the minimum input change that flips the decision. |
 | `run_sensitivity` | Run one-way sensitivity and return the tornado-ordered report (which assumptions the decision is most sensitive to) + baseline EV + sheets. |

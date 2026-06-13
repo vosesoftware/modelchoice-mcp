@@ -1047,6 +1047,7 @@ _REPORTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "policy_suggestion": ("MC_PolicySuggestion_Auto", "MC_PolicyTable", ("MC_Policy",)),
     "decision_brief": ("MC_DecisionBrief_Auto", "MC_DecisionBrief", ("MC_Brief", "MC_Decision")),
     "mcda_report": ("MC_McdaReport_Auto", "MC_MCDA_Summary", ("MC_MCDA", "MC_Mcda")),
+    "force_to_outcome": ("MC_ForceToOutcome_Auto", "MC_ForceOutcome", ("MC_Force",)),
 }
 
 
@@ -1055,8 +1056,9 @@ _REPORTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "ModelChoice: Run a decision report and read it back in one call — "
         "'strategy_table' (the optimal action for every scenario), "
         "'policy_suggestion' (recommended policy + rationale), "
-        "'decision_brief' (an executive summary of the decision), or "
-        "'mcda_report' (multi-criteria scores). Returns the primary sheet's "
+        "'decision_brief' (an executive summary of the decision), "
+        "'mcda_report' (multi-criteria scores), or 'force_to_outcome' (what "
+        "inputs would have to change to force a chosen outcome). Returns the primary sheet's "
         "rows, any label→value pairs found, and the related report sheets. "
         "Requires the ModelChoice add-in loaded with a tree open."
     )

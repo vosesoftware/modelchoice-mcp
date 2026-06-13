@@ -71,6 +71,7 @@ class _FakeBridge:
             "sheets": [
                 "MC_Tree_1", "MC_RB_Verdict", "MC_SensReport", "MC_Tornado",
                 "MC_StrategyTable", "MC_StratRegions", "MC_RiskProfile",
+                "MC_ForceOutcome",
             ],
         }
 
@@ -547,10 +548,14 @@ def test_run_decision_report_maps_all(bridge: _FakeBridge) -> None:
         "policy_suggestion": "MC_PolicySuggestion_Auto",
         "decision_brief": "MC_DecisionBrief_Auto",
         "mcda_report": "MC_McdaReport_Auto",
+        "force_to_outcome": "MC_ForceToOutcome_Auto",
     }
     for name, cmd in cmds.items():
         out = tools.run_decision_report(name)
         assert out.command == cmd
+    # force_to_outcome finds its primary sheet
+    fto = tools.run_decision_report("force_to_outcome")
+    assert fto.primary_sheet == "MC_ForceOutcome"
 
 
 def test_run_risk_profile(bridge: _FakeBridge) -> None:
