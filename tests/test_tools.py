@@ -71,9 +71,13 @@ class _FakeBridge:
             "sheets": [
                 "MC_Tree_1", "MC_RB_Verdict", "MC_SensReport", "MC_Tornado",
                 "MC_StrategyTable", "MC_StratRegions", "MC_RiskProfile",
-                "MC_ForceOutcome",
+                "MC_ForceOutcome", "MC_TwoWaySens",
             ],
         }
+
+    def import_precisiontree(self, file_path: str) -> dict[str, object]:
+        self.imported_path = file_path
+        return {"workbook": "oil_ModelChoice.xlsx", "trees": ["MC_Tree_1"]}
 
     def run_evii(self, chance_node: str, likelihoods: list[list[float]],
                  test_cost: float = 0.0, signals: list[str] | None = None,
@@ -596,6 +600,20 @@ def test_run_decision_report_maps_all(bridge: _FakeBridge) -> None:
     # force_to_outcome finds its primary sheet
     fto = tools.run_decision_report("force_to_outcome")
     assert fto.primary_sheet == "MC_ForceOutcome"
+    # two_way_sensitivity maps + finds its grid sheet
+    tw = tools.run_decision_report("two_way_sensitivity")
+    assert tw.command == "MC_TwoWaySensitivity_Auto"
+    assert tw.primary_sheet == "MC_TwoWaySens"
+
+
+def test_import_precisiontree(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import ImportResult
+
+    out = tools.import_precisiontree(r"C:\models\oil.xlsx")
+    assert isinstance(out, ImportResult)
+    assert bridge.imported_path == r"C:\models\oil.xlsx"
+    assert out.workbook == "oil_ModelChoice.xlsx"
+    assert out.trees == ["MC_Tree_1"]
 
 
 def test_run_risk_profile(bridge: _FakeBridge) -> None:

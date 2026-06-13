@@ -22,6 +22,7 @@ from modelchoice_mcp.schemas import (
     EditOp,
     EviiResult,
     EvpiResult,
+    ImportResult,
     KeyValue,
     NodeDiff,
     NodeResultView,
@@ -449,6 +450,33 @@ def export_tree_json(
         model_name=t.model_name,
         node_count=len(t.nodes),
         model_json=raw,
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Import a PrecisionTree workbook (.xls/.xlsx) into "
+        "ModelChoice. Converts a copy (the original is never modified), opens "
+        "it as the active workbook, and returns the converted workbook name and "
+        "its tree sheets. Drives ModelChoice's headless MC_ImportPrecisionTree_Auto; "
+        "requires the add-in loaded (a build that includes the import command)."
+    )
+)
+def import_precisiontree(
+    file_path: Annotated[str, Field(description="Path to the PrecisionTree .xls/.xlsx file.")],
+) -> ImportResult:
+    r = get_bridge().import_precisiontree(file_path)
+    trees = r.get("trees", [])
+    wb = r.get("workbook")
+    return ImportResult(
+        workbook=wb,
+        trees=trees,
+        note=(
+            f"Imported to {wb!r}; trees: {', '.join(trees)}."
+            if trees
+            else "Import ran; no ModelChoice trees were found in the result — "
+            "check the source is a PrecisionTree model."
+        ),
     )
 
 
@@ -1127,6 +1155,7 @@ _REPORTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "decision_brief": ("MC_DecisionBrief_Auto", "MC_DecisionBrief", ("MC_Brief", "MC_Decision")),
     "mcda_report": ("MC_McdaReport_Auto", "MC_MCDA_Summary", ("MC_MCDA", "MC_Mcda")),
     "force_to_outcome": ("MC_ForceToOutcome_Auto", "MC_ForceOutcome", ("MC_Force",)),
+    "two_way_sensitivity": ("MC_TwoWaySensitivity_Auto", "MC_TwoWaySens", ("MC_TwoWay",)),
 }
 
 
@@ -1136,8 +1165,10 @@ _REPORTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "'strategy_table' (the optimal action for every scenario), "
         "'policy_suggestion' (recommended policy + rationale), "
         "'decision_brief' (an executive summary of the decision), "
-        "'mcda_report' (multi-criteria scores), or 'force_to_outcome' (what "
-        "inputs would have to change to force a chosen outcome). Returns the primary sheet's "
+        "'mcda_report' (multi-criteria scores), 'force_to_outcome' (what "
+        "inputs would have to change to force a chosen outcome), or "
+        "'two_way_sensitivity' (the EV grid over the two most-sensitive inputs). "
+        "Returns the primary sheet's "
         "rows, any label→value pairs found, and the related report sheets. "
         "Requires the ModelChoice add-in loaded with a tree open."
     )
@@ -1218,6 +1249,7 @@ __all__ = [
     "export_tree_json",
     "get_bridge",
     "get_tree",
+    "import_precisiontree",
     "import_tree_json",
     "list_trees",
     "read_sheet",

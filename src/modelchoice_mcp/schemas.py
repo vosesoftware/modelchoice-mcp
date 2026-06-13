@@ -222,6 +222,16 @@ class TreeExport(BaseModel):
     )
 
 
+class ImportResult(BaseModel):
+    """Outcome of importing a PrecisionTree workbook into ModelChoice."""
+
+    workbook: str | None = Field(
+        default=None, description="The converted ModelChoice workbook, now active."
+    )
+    trees: list[str] = Field(description="Tree sheet names found in the converted workbook.")
+    note: str
+
+
 class AnalysisRun(BaseModel):
     """Result of driving a ModelChoice headless analysis command."""
 

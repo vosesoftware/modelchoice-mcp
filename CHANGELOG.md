@@ -3,6 +3,13 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.20
+- **Drivers for the C# add-in batch** — `import_precisiontree` (drives
+  `MC_ImportPrecisionTree_Auto`) and `two_way_sensitivity` via
+  `run_decision_report` (drives `MC_TwoWaySensitivity_Auto`). Both no-op until
+  the matching add-in build (PR !2032) is installed. (Terminal-payoff linking
+  in the control panel is add-in-side; no new MCP tool needed.)
+
 ## 0.0.19
 - **Housekeeping** — CHANGELOG; gated live integration tests
   (`MODELCHOICE_LIVE=1`) exercising the real COM attach/read/rollback path.

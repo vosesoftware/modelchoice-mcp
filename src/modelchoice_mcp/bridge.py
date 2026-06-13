@@ -296,6 +296,40 @@ class ModelChoiceBridge:
             rows = self.read_sheet(target, workbook, max_rows=60, max_cols=3)
         return {"sheet": target, "rows": rows}
 
+    def import_precisiontree(self, file_path: str) -> dict[str, Any]:
+        """Drive ModelChoice's headless PrecisionTree import. Calls
+        ``Application.Run("MC_ImportPrecisionTree_Auto", file_path)`` — which
+        converts a copy of the workbook (originals untouched) and opens it as
+        the active workbook — then reads the converted workbook's trees.
+        Requires the add-in loaded with a build that includes the import
+        command."""
+        xw = self._load_xw()
+        app = xw.apps.active
+        if app is None:
+            raise ExcelNotRunningError(
+                "No running Excel instance found. Open Excel first."
+            )
+        try:
+            app.api.Run("MC_ImportPrecisionTree_Auto", file_path)
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "MC_ImportPrecisionTree_Auto could not run — is the ModelChoice add-in "
+                "loaded in Excel? (Needs a build that includes the import command.)"
+            ) from exc
+
+        name: str | None = None
+        try:
+            name = app.books.active.name
+        except Exception:
+            pass
+        trees: list[str] = []
+        if name:
+            try:
+                trees = list(self.list_trees(name).keys())
+            except Exception:
+                trees = []
+        return {"workbook": name, "trees": trees}
+
     def run_analysis(self, command_name: str, workbook: str | None = None) -> dict[str, Any]:
         """Drive a ModelChoice headless analysis command (an ``MC_*_Auto``
         ExcelCommand) via ``Application.Run`` and report which result
