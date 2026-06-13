@@ -3,6 +3,16 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.24
+- **`/decision-tree-monte-carlo` prompt** — guides the cross-server Monte Carlo
+  hand-off: assign `Vose*` distributions to a tree's uncertain inputs
+  (`set_input_distribution`), wrap the root EV (`MC_V_<rootId>`) as a ModelRisk
+  output, run the simulation in **modelrisk-mcp**, and read the EV's output
+  distribution back. The `/design-decision-tree` prompt's step 5 now points to it.
+- **README roadmap** refreshed — Phases 0–3 marked delivered (22 tools, 2
+  prompts), with simulation-orchestration and AHP-for-MCDA as candidate next
+  steps.
+
 ## 0.0.23
 - **`set_input_distribution`** — assign an uncertainty (a ModelRisk `Vose*`
   distribution) to a tree input (branch cash flow or probability), the way the

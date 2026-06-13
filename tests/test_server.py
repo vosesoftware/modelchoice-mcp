@@ -7,7 +7,7 @@ from modelchoice_mcp.server import mcp
 
 
 def test_version_set() -> None:
-    assert __version__ == "0.0.23"
+    assert __version__ == "0.0.24"
 
 
 def test_server_name() -> None:
@@ -27,6 +27,11 @@ async def test_tool_descriptions_have_brand_prefix() -> None:
 async def test_design_prompt_registered() -> None:
     names = {p.name for p in await mcp.list_prompts()}
     assert "design-decision-tree" in names
+
+
+async def test_simulation_prompt_registered() -> None:
+    names = {p.name for p in await mcp.list_prompts()}
+    assert "decision-tree-monte-carlo" in names
 
 
 async def test_guidance_resources_registered() -> None:

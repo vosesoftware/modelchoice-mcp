@@ -4,7 +4,7 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.23` — Phase 3 (build + drive).** 22 tools: build_tree / build_mcda / edit_tree (incl. add/remove options & outcomes) / set_input_distribution (put a Vose distribution on an input) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
+> **Status: `0.0.24` — Phase 3 (build + drive).** 22 tools: build_tree / build_mcda / edit_tree (incl. add/remove options & outcomes) / set_input_distribution (put a Vose distribution on an input) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
@@ -33,7 +33,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `run_decision_report` | Run a decision report — `strategy_table`, `policy_suggestion`, `decision_brief`, or `mcda_report` — and read the primary result sheet back in one call (rows + label→value pairs + related sheets). |
 | `read_sheet` | Read a result sheet's cells back (numbers / text), e.g. the robustness verdict or a sensitivity report. |
 
-**Prompt:** `/design-decision-tree` walks an analyst through building a tree from a description (or pasted data) and analysing it.
+**Prompts:** `/design-decision-tree` walks an analyst through building a tree from a description (or pasted data) and analysing it. `/decision-tree-monte-carlo` then turns it into a Monte Carlo — put `Vose*` distributions on the uncertain inputs and run the simulation in `modelrisk-mcp` to get the distribution of the tree's expected value.
 
 **Resources:** `modelchoice://guide/*` — curated decision-analysis guidance (building trees, EVPI vs EVII, which analysis answers which question, common pitfalls) the model can read for grounding.
 
@@ -50,11 +50,15 @@ The Python roller is validated against ModelChoice's own authoritative C# test (
 
 ## Roadmap
 
-- **Phase 0 (done):** the read + rollback engine — parse `_MC_Store`, reconstruct each tree, roll back to EV + optimal policy. Validated against ModelChoice's own C# rollback test.
-- **Phase 1 (done):** the MCP server — `list_trees`, `get_tree`, `roll_up`, proven live against a real workbook.
-- **Phase 1b (done):** `verify_rollback` cross-checks our EVs against the `MC_V_<id>` named ranges; CI (ruff + mypy + pytest) and a tag-driven PyPI release pipeline; wheel + sdist build. *(First publish awaits a PyPI trusted-publisher; the live `MC_V_` cross-check awaits a real rendered tree.)*
-- **Phase 2 (in progress):** drive analyses. ModelChoice already ships headless `MC_*_Auto` ExcelCommands for most analyses (robustness, sensitivity, strategy table, policy, decision brief, MCDA, risk profile); `run_analysis` + `read_sheet` drive and read any of them. EVPI and EVII had no standalone commands, so `MC_EVPI_Auto` (AB#2558) and `MC_EVII_Auto` (AB#2568) were added with the `run_evpi` / `run_evii` tools. Live verification + richer per-analysis result parsing are the remaining work.
-- **Phase 3:** build/edit trees — write the model JSON into `_MC_Store` and trigger a re-render.
+- **Phase 0 — read + rollback engine (done):** parse `_MC_Store`, reconstruct each tree, roll back to EV + optimal policy. Validated against ModelChoice's own C# rollback test.
+- **Phase 1 — the MCP server (done):** `list_trees`, `get_tree`, `roll_up`, proven live against a real workbook. `verify_rollback` cross-checks our EVs against the `MC_V_<id>` named ranges (live-verified: 4/4 nodes, 0 diff). CI (ruff + mypy + pytest) + a tag-driven PyPI release pipeline.
+- **Phase 2 — drive analyses (done):** `run_analysis` + `read_sheet` drive any headless `MC_*_Auto` command; structured readers for `run_robustness`, `run_sensitivity`, `run_risk_profile`, and `run_decision_report` (strategy / policy / brief / mcda / force-to-outcome / two-way), plus standalone `run_evpi` (AB#2558) and `run_evii` (AB#2568).
+- **Phase 3 — build / edit / extend trees (done):** `build_tree`, `edit_tree` (incl. add/remove options & outcomes), `build_control_panel`, `export_tree_json` / `import_tree_json`, `import_precisiontree` (AB#2632), `run_utility` (risk attitude, AB#2635), `build_mcda` (multi-criteria, AB#2637), and `set_input_distribution` (put a `Vose*` distribution on an input — the decision-tree half of a Monte Carlo). All live-verified against the shipped add-in.
+
+The original phased roadmap is delivered. Candidate next steps (not yet scheduled):
+
+- **Simulation hand-off (cross-server):** the `decision-tree-monte-carlo` prompt guides assigning distributions → wrapping the root EV as a ModelRisk output → running the simulation in `modelrisk-mcp` → reading the EV's output distribution back. A thin orchestration tool could automate the hand-off end-to-end.
+- **AHP weight elicitation for MCDA:** `build_mcda` v1 takes direct weights; the add-in's Core already ships an `AhpCalculator` (pairwise comparisons → eigenvector weights + consistency ratio). A future `build_mcda` could accept a pairwise matrix instead (tracked in ADO).
 
 ## Architecture
 
