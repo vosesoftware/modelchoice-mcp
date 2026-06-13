@@ -70,7 +70,7 @@ class _FakeBridge:
             "new_sheets": ["MC_RB_Verdict"],
             "sheets": [
                 "MC_Tree_1", "MC_RB_Verdict", "MC_SensReport", "MC_Tornado",
-                "MC_StrategyTable", "MC_StratRegions",
+                "MC_StrategyTable", "MC_StratRegions", "MC_RiskProfile",
             ],
         }
 
@@ -124,6 +124,21 @@ class _FakeBridge:
 
     def read_sheet(self, sheet_name: str, workbook: str | None = None,
                    max_rows: int = 200, max_cols: int = 20) -> list[list[object]]:
+        if sheet_name == "MC_RiskProfile":
+            return [
+                [None, "Risk Profile", None, None],
+                [None, "Performed by ...", None, None],
+                [None, "Date ...", None, None],
+                [None, "Start node ...", None, None],
+                [None, None, None, None],
+                [None, "Statistical Summary", None, None],
+                [None, "Statistic", "Drill", "Sell"],
+                [None, "Expected Value", -25.0, 50.0],
+                [None, "Minimum", -100.0, 50.0],
+                [None, "Maximum", 50.0, 50.0],
+                [None, "Std Deviation", 75.0, 0.0],
+                [None, None, None, None],
+            ]
         return [
             ["Robustness verdict", "Robust"],
             ["Robustness Score", "82 / 100"],
@@ -536,6 +551,20 @@ def test_run_decision_report_maps_all(bridge: _FakeBridge) -> None:
     for name, cmd in cmds.items():
         out = tools.run_decision_report(name)
         assert out.command == cmd
+
+
+def test_run_risk_profile(bridge: _FakeBridge) -> None:
+    out = tools.run_risk_profile()
+    assert bridge.last_command == "MC_RiskProfile_Auto"
+    assert out.sheets == ["MC_RiskProfile"]
+    by_name = {s.name: s for s in out.series}
+    assert set(by_name) == {"Drill", "Sell"}
+    assert by_name["Drill"].expected_value == -25.0
+    assert by_name["Drill"].minimum == -100.0
+    assert by_name["Drill"].maximum == 50.0
+    assert by_name["Drill"].std_dev == 75.0
+    assert by_name["Sell"].expected_value == 50.0
+    assert by_name["Sell"].std_dev == 0.0
 
 
 def test_run_sensitivity(bridge: _FakeBridge) -> None:

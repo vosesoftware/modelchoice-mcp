@@ -26,6 +26,8 @@ from modelchoice_mcp.schemas import (
     NodeDiff,
     NodeResultView,
     NodeView,
+    RiskProfileReport,
+    RiskProfileSeries,
     RobustnessSummary,
     RollbackVerification,
     RollupResponse,
@@ -920,6 +922,83 @@ def run_robustness(workbook_name: str | None = None) -> RobustnessSummary:
     )
 
 
+def _rp_num(v: Any) -> float | None:
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _parse_risk_profile_series(rows: list[list[Any]]) -> list[RiskProfileSeries]:
+    """Parse the per-series stats block (Statistic | series… header, then EV /
+    Min / Max / StdDev rows). Series names come from the header; stat fields are
+    matched by keyword (English) and degrade to None otherwise."""
+    header_idx = None
+    for i, row in enumerate(rows):
+        if (
+            len(row) > 2
+            and isinstance(row[1], str)
+            and any(isinstance(c, str) and c.strip() for c in row[2:])
+        ):
+            nxt = rows[i + 1] if i + 1 < len(rows) else []
+            if len(nxt) > 2 and _rp_num(nxt[2]) is not None:
+                header_idx = i
+                break
+    if header_idx is None:
+        return []
+
+    names = [str(c).strip() for c in rows[header_idx][2:] if isinstance(c, str) and c.strip()]
+    stats: dict[str, dict[str, float]] = {n: {} for n in names}
+    for row in rows[header_idx + 1:]:
+        if len(row) < 2 or not isinstance(row[1], str) or not row[1].strip():
+            break
+        label = row[1].strip().lower()
+        if "expected" in label or "mean" in label:
+            field = "expected_value"
+        elif "min" in label:
+            field = "minimum"
+        elif "max" in label:
+            field = "maximum"
+        elif "std" in label or "deviation" in label:
+            field = "std_dev"
+        else:
+            continue
+        for j, n in enumerate(names):
+            v = _rp_num(row[2 + j]) if 2 + j < len(row) else None
+            if v is not None:
+                stats[n][field] = v
+    return [RiskProfileSeries(name=n, **stats[n]) for n in names]
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Run the risk profile and return the outcome distribution "
+        "for each decision option — not just the expected value, but the spread "
+        "(expected value, minimum, maximum, std dev per option) plus the full "
+        "cumulative-probability table rows. Shows downside/upside, not just the "
+        "average. Drives ModelChoice's headless MC_RiskProfile_Auto; requires "
+        "the add-in loaded with a tree open."
+    )
+)
+def run_risk_profile(workbook_name: str | None = None) -> RiskProfileReport:
+    bridge = get_bridge()
+    run = bridge.run_analysis("MC_RiskProfile_Auto", workbook_name)
+    all_sheets = run.get("sheets", [])
+    rp_sheets = [s for s in all_sheets if s.startswith("MC_RiskProfile")]
+    rows: list[list[Any]] = []
+    if "MC_RiskProfile" in all_sheets:
+        rows = bridge.read_sheet("MC_RiskProfile", workbook_name)
+    series = _parse_risk_profile_series(rows)
+    return RiskProfileReport(
+        series=series,
+        report_rows=rows,
+        sheets=rp_sheets,
+        note=(
+            f"Outcome stats for {len(series)} option(s). The report rows include "
+            "the cumulative-probability table (read other sheets via read_sheet)."
+            if series
+            else "Risk profile ran; parse the report rows for the distribution."
+        ),
+    )
+
+
 @mcp.tool(
     description=(
         "ModelChoice: Run one-way sensitivity analysis and return the report. "
@@ -1064,6 +1143,7 @@ __all__ = [
     "run_decision_report",
     "run_evii",
     "run_evpi",
+    "run_risk_profile",
     "run_robustness",
     "run_scenarios",
     "run_sensitivity",

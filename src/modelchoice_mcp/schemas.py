@@ -321,6 +321,30 @@ class EviiResult(BaseModel):
     interpretation: str = Field(description="Plain-English reading of the EVII result.")
 
 
+class RiskProfileSeries(BaseModel):
+    """Outcome statistics for one decision series (option) in a risk profile."""
+
+    name: str = Field(description="Decision option / series name.")
+    expected_value: float | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    std_dev: float | None = None
+
+
+class RiskProfileReport(BaseModel):
+    """ModelChoice's risk profile — the distribution of possible outcomes for
+    each decision option (not just the EV). Drives MC_RiskProfile_Auto."""
+
+    series: list[RiskProfileSeries] = Field(
+        description="Per-option outcome stats (expected value, min, max, std dev)."
+    )
+    report_rows: list[list[Any]] = Field(
+        description="Rows of the MC_RiskProfile sheet (stats + the cumulative-probability table)."
+    )
+    sheets: list[str] = Field(description="Risk-profile report sheets produced.")
+    note: str
+
+
 class SensitivityReport(BaseModel):
     """Read of ModelChoice's one-way sensitivity analysis. Variables are
     reported tornado-ordered (largest EV swing first)."""
