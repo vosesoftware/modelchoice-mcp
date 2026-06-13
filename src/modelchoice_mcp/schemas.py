@@ -308,6 +308,35 @@ class ControlPanelResult(BaseModel):
     note: str
 
 
+class UtilityResult(BaseModel):
+    """Risk-attitude (utility) rollback — the certainty equivalent and the
+    optimal decision under a decision-maker's risk attitude, vs plain EV.
+    Produced by ModelChoice's headless MC_Utility_Auto."""
+
+    function: str | None = Field(default=None, description="Utility function applied.")
+    risk_tolerance: float | None = Field(
+        default=None, description="Risk tolerance R (exponential utility)."
+    )
+    expected_value: float | None = Field(default=None, description="Plain rolled-back EV.")
+    certainty_equivalent: float | None = Field(
+        default=None,
+        description="Guaranteed amount equivalent to the gamble under this risk attitude.",
+    )
+    risk_premium: float | None = Field(
+        default=None, description="EV minus certainty equivalent; positive => risk-averse."
+    )
+    optimal_decision_ev: str | None = Field(
+        default=None, description="Optimal decision by expected value."
+    )
+    optimal_decision_utility: str | None = Field(
+        default=None, description="Optimal decision under the utility function."
+    )
+    decision_changed: bool | None = Field(
+        default=None, description="True if risk attitude changes the optimal decision."
+    )
+    interpretation: str = Field(description="Plain-English reading of the result.")
+
+
 class EviiResult(BaseModel):
     """Expected Value of Imperfect Information (EVII / EVSI) for a specific
     test, produced by ModelChoice's headless MC_EVII_Auto command. Unlike

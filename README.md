@@ -4,7 +4,7 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.20` — Phase 3 (build + drive).** 19 tools: build_tree / edit_tree (incl. add/remove options & outcomes) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
+> **Status: `0.0.21` — Phase 3 (build + drive).** 20 tools: build_tree / edit_tree (incl. add/remove options & outcomes) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
@@ -22,6 +22,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `run_scenarios` | **What-if comparison** — give named scenarios (bundles of input changes); each is rolled back and compared to the baseline (EV, optimal decision, Δ, whether the decision flips, which scenario wins). Pure Python, no Excel needed. |
 | `run_evpi` | Expected Value of Perfect Information for the active tree — the most you'd pay for perfect information before deciding. Drives ModelChoice's headless `MC_EVPI_Auto`. |
 | `run_risk_profile` | The **outcome distribution** for each decision option — expected value, min, max, std dev, plus the cumulative-probability table. Shows downside/upside, not just the average. Drives `MC_RiskProfile_Auto`. |
+| `run_utility` | Apply a **risk attitude** (utility function) — returns the certainty equivalent, risk premium, and the optimal decision under risk aversion (can differ from the EV choice). Drives `MC_Utility_Auto`. |
 | `run_evii` | Expected Value of Imperfect Information for a specific **test** — pass the target chance node and a likelihood matrix P(signal\|state); returns EVII, its net value after cost (worth running?), and the EVPI ceiling. Drives `MC_EVII_Auto`. |
 | `run_decision_report` | Run a report — `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, or `force_to_outcome` — and read it back (rows + label→value pairs + sheets) in one call. |
 | `run_analysis` | Run any decision-analysis (`robustness`, `sensitivity`, `strategy_table`, `policy_suggestion`, `decision_brief`, `mcda_report`, `risk_profile`, `evpi`) and report the result sheets it produced. |

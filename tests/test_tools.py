@@ -63,6 +63,19 @@ class _FakeBridge:
             "value_with_perfect_info": 75.0,
         }
 
+    def run_utility(self, function: str = "exponential", risk_tolerance: float = 1.0,
+                    workbook: str | None = None) -> dict[str, object]:
+        self.utility_args = (function, risk_tolerance)
+        return {
+            "function": "Exponential",
+            "risk_tolerance": 50.0,
+            "expected_value": 50.0,
+            "certainty_equivalent": 30.0,
+            "risk_premium": 20.0,
+            "optimal_decision_ev": "Sell",
+            "optimal_decision_utility": "Sell",
+        }
+
     def run_analysis(self, command_name: str, workbook: str | None = None) -> dict[str, object]:
         self.last_command = command_name
         return {
@@ -258,6 +271,19 @@ def test_build_control_panel_parses_inputs(bridge: _FakeBridge) -> None:
     assert "Drill?: Sell — value" in labels
     assert "Input" not in labels
     assert "persist across re-renders" in out.note
+
+
+def test_run_utility(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import UtilityResult
+
+    out = tools.run_utility(risk_tolerance=50.0, function="exponential")
+    assert isinstance(out, UtilityResult)
+    assert bridge.utility_args == ("exponential", 50.0)
+    assert out.expected_value == 50.0
+    assert out.certainty_equivalent == 30.0
+    assert out.risk_premium == 20.0
+    assert out.decision_changed is False  # Sell == Sell
+    assert "risk premium" in out.interpretation
 
 
 def test_run_evii_parses_key_values(bridge: _FakeBridge) -> None:

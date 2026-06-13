@@ -42,6 +42,7 @@ from modelchoice_mcp.schemas import (
     TreeSpec,
     TreeStructure,
     TreeSummary,
+    UtilityResult,
 )
 from modelchoice_mcp.server import mcp
 from modelchoice_mcp.tree import (
@@ -1029,6 +1030,68 @@ def run_robustness(workbook_name: str | None = None) -> RobustnessSummary:
     )
 
 
+@mcp.tool(
+    description=(
+        "ModelChoice: Apply a decision-maker's RISK ATTITUDE (utility function) "
+        "to the active tree and return the certainty equivalent, the risk "
+        "premium (EV minus CE), and the optimal decision under risk aversion — "
+        "which can differ from the EV-maximising choice. `function` is "
+        "'exponential' (needs `risk_tolerance` R — roughly the 50/50 "
+        "double-or-nothing amount you're indifferent to), 'logarithmic', 'sqrt', "
+        "or 'linear'. Drives ModelChoice's headless MC_Utility_Auto; requires the "
+        "add-in loaded with a tree open. Not defined for MCDA models."
+    )
+)
+def run_utility(
+    risk_tolerance: Annotated[
+        float,
+        Field(description="Risk tolerance R for exponential utility; ignored by others."),
+    ] = 1.0,
+    function: Annotated[
+        str, Field(description="exponential | logarithmic | sqrt | linear")
+    ] = "exponential",
+    workbook_name: str | None = None,
+) -> UtilityResult:
+    r = get_bridge().run_utility(function, risk_tolerance, workbook_name)
+    ev = r.get("expected_value")
+    ce = r.get("certainty_equivalent")
+    premium = r.get("risk_premium")
+    opt_ev = r.get("optimal_decision_ev")
+    opt_u = r.get("optimal_decision_utility")
+    changed = (opt_ev != opt_u) if (opt_ev is not None and opt_u is not None) else None
+
+    if ce is None:
+        interp = "Utility result could not be read from the MC_Utility sheet."
+    elif changed:
+        interp = (
+            f"Risk attitude CHANGES the decision: by EV you'd pick {opt_ev!r}, but under "
+            f"this risk attitude the optimal choice is {opt_u!r} (certainty equivalent "
+            f"{ce:,.2f})."
+        )
+    else:
+        prem_txt = (
+            f"; risk premium {premium:,.2f} (positive means risk-averse)."
+            if premium is not None
+            else "."
+        )
+        interp = (
+            f"Certainty equivalent {ce:,.2f}{prem_txt} The optimal decision "
+            f"({opt_u!r}) is unchanged from the EV choice."
+        )
+
+    return UtilityResult(
+        function=r.get("function"),
+        risk_tolerance=r.get("risk_tolerance"),
+        expected_value=ev,
+        certainty_equivalent=ce,
+        risk_premium=premium,
+        optimal_decision_ev=opt_ev,
+        optimal_decision_utility=opt_u,
+        decision_changed=changed,
+        interpretation=interp,
+    )
+
+
 def _rp_num(v: Any) -> float | None:
     return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
@@ -1262,6 +1325,7 @@ __all__ = [
     "run_robustness",
     "run_scenarios",
     "run_sensitivity",
+    "run_utility",
     "set_bridge_for_testing",
     "verify_rollback",
 ]

@@ -13,7 +13,7 @@ reads cell values only.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 from modelchoice_mcp.store import STORE_SHEET_NAME, parse_store, reassemble_chunks
 from modelchoice_mcp.tree import DecisionTree, RollupResult, parse_model, rollup
@@ -197,6 +197,71 @@ class ModelChoiceBridge:
             "optimal_ev": _num("C6"),
             "evpi": _num("C7"),
             "value_with_perfect_info": _num("C8"),
+        }
+
+    _UTILITY_FUNCTIONS: ClassVar[dict[str, str]] = {
+        "exponential": "Exponential",
+        "logarithmic": "Logarithmic",
+        "log": "Logarithmic",
+        "linear": "Linear",
+        "sqrt": "Square Root",
+        "square_root": "Square Root",
+        "squareroot": "Square Root",
+    }
+
+    def run_utility(
+        self,
+        function: str = "exponential",
+        risk_tolerance: float = 1.0,
+        workbook: str | None = None,
+    ) -> dict[str, Any]:
+        """Drive ModelChoice's headless risk-attitude (utility) rollback.
+
+        Maps a friendly function name to ModelChoice's type, calls
+        ``Application.Run("MC_Utility_Auto", specJson)`` — which writes the
+        ``MC_Utility`` sheet (EV, certainty equivalent, risk premium, optimal
+        decision under EV vs utility) — then reads it back. Requires the
+        add-in loaded with a tree open (a build that includes MC_Utility_Auto).
+        Not defined for MCDA models."""
+        ftype = self._UTILITY_FUNCTIONS.get(function.strip().lower())
+        if ftype is None:
+            raise ValueError(
+                f"Unknown utility function {function!r}. Choose from: "
+                f"{', '.join(sorted(set(self._UTILITY_FUNCTIONS)))}."
+            )
+        book = self._book(workbook)
+        try:
+            book.activate()
+        except Exception:
+            pass
+        spec = json.dumps({"functionType": ftype, "riskTolerance": risk_tolerance})
+        try:
+            book.app.api.Run("MC_Utility_Auto", spec)
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "MC_Utility_Auto could not run — is the ModelChoice add-in loaded "
+                "in Excel, with a decision tree open? (Needs a build with the utility command.)"
+            ) from exc
+        try:
+            sheet = book.sheets["MC_Utility"]
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(
+                "Utility ran but wrote no MC_Utility sheet — check a tree is the active "
+                "model and (for log/sqrt utilities) that payoffs are positive."
+            ) from exc
+
+        def _num(cell: str) -> float | None:
+            v = sheet.range(cell).value
+            return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+        return {
+            "function": sheet.range("C5").value,
+            "risk_tolerance": _num("C6"),
+            "expected_value": _num("C7"),
+            "certainty_equivalent": _num("C8"),
+            "risk_premium": _num("C9"),
+            "optimal_decision_ev": sheet.range("C10").value,
+            "optimal_decision_utility": sheet.range("C11").value,
         }
 
     def run_evii(

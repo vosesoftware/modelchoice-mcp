@@ -3,6 +3,11 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.21
+- **`run_utility`** — risk-attitude (utility) rollback: certainty equivalent,
+  risk premium, and the optimal decision under risk aversion vs EV. Drives the
+  new `MC_Utility_Auto` (AB#2635); no-op until that add-in build ships.
+
 ## 0.0.20
 - **Drivers for the C# add-in batch** — `import_precisiontree` (drives
   `MC_ImportPrecisionTree_Auto`) and `two_way_sensitivity` via
