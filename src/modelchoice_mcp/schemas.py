@@ -211,6 +211,17 @@ class ScenarioComparison(BaseModel):
     note: str
 
 
+class TreeExport(BaseModel):
+    """A tree's stored ModelChoice model JSON, for saving or sharing."""
+
+    tree: str = Field(description="Tree sheet name.")
+    model_name: str
+    node_count: int
+    model_json: str = Field(
+        description="The raw ModelChoice model JSON (round-trips via import_tree_json)."
+    )
+
+
 class AnalysisRun(BaseModel):
     """Result of driving a ModelChoice headless analysis command."""
 

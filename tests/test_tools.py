@@ -421,6 +421,46 @@ def test_edit_tree_bad_target_raises() -> None:
         tools.set_bridge_for_testing(None)
 
 
+def test_export_tree_json(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import TreeExport
+
+    out = tools.export_tree_json()
+    assert isinstance(out, TreeExport)
+    assert out.tree == "MC_Tree_1"
+    assert out.model_name == "Oil"
+    assert out.node_count == 4
+    assert out.model_json == _MODEL
+
+
+def test_import_tree_json_roundtrip() -> None:
+    fake = _FakeBridge({"MC_Tree_1": _MODEL})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        # dry-run validates + rolls back, no write
+        prev = tools.import_tree_json(_MODEL)
+        assert prev.written is False
+        assert prev.expected_value == 50.0 and prev.optimal_path == ["Sell"]
+        assert prev.node_count == 4
+        # commit writes the raw JSON as-is + renders
+        out = tools.import_tree_json(_MODEL, dry_run=False)
+        assert out.written is True and out.sheet == "MC_Tree_1"
+        assert fake.written_json == _MODEL
+        assert fake.rendered == "MC_Tree_1"
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_import_tree_json_bad_json_raises() -> None:
+    from modelchoice_mcp.tree import TreeParseError
+
+    tools.set_bridge_for_testing(_FakeBridge({}))  # type: ignore[arg-type]
+    try:
+        with pytest.raises((TreeParseError, ValueError)):
+            tools.import_tree_json("{not valid model json}")
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
 def test_run_scenarios_compares(bridge: _FakeBridge) -> None:
     from modelchoice_mcp.schemas import ScenarioComparison, ScenarioSpec
 

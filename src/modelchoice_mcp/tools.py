@@ -36,6 +36,7 @@ from modelchoice_mcp.schemas import (
     ScenarioSpec,
     SensitivityReport,
     SheetData,
+    TreeExport,
     TreeList,
     TreeSpec,
     TreeStructure,
@@ -418,6 +419,84 @@ def get_tree(
         maximize=t.maximize,
         node_count=len(t.nodes),
         nodes=nodes,
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Export a tree's raw ModelChoice model JSON — for saving "
+        "to a file, sharing, version control, or re-importing elsewhere with "
+        "import_tree_json. Read-only. Pass tree_name to pick a tree, else the "
+        "first/active one."
+    )
+)
+def export_tree_json(
+    tree_name: Annotated[
+        str | None, Field(description="Tree sheet name. Omit for the first tree.")
+    ] = None,
+    workbook_name: str | None = None,
+) -> TreeExport:
+    bridge = get_bridge()
+    trees = bridge.list_trees(workbook_name)
+    if tree_name is None:
+        tree_name = next(iter(trees))
+    if tree_name not in trees:
+        raise ValueError(f"Tree {tree_name!r} not found. Available: {', '.join(trees)}.")
+    raw = trees[tree_name]
+    t = parse_model(raw)
+    return TreeExport(
+        tree=tree_name,
+        model_name=t.model_name,
+        node_count=len(t.nodes),
+        model_json=raw,
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Import a tree from raw ModelChoice model JSON (e.g. one "
+        "produced by export_tree_json). Validates it by parsing + rolling it "
+        "back (catching bad JSON, cycles, missing children), then returns the "
+        "EV + optimal policy. dry_run=True (default) previews without touching "
+        "Excel; dry_run=False writes the tree into the workbook (preserving the "
+        "JSON as-is) and renders it (needs the add-in loaded)."
+    )
+)
+def import_tree_json(
+    model_json: Annotated[str, Field(description="Raw ModelChoice model JSON to import.")],
+    sheet_name: Annotated[
+        str | None, Field(description="Tree sheet name to write to. Omit to auto-name.")
+    ] = None,
+    dry_run: bool = True,
+    workbook_name: str | None = None,
+) -> BuildTreeResult:
+    parsed = parse_model(model_json)  # raises TreeParseError on bad JSON/structure
+    r = rollup(parsed)
+    direction = "maximize" if parsed.maximize else "minimize"
+    if r.optimal_path:
+        rec = (
+            f"Optimal decision ({direction} EV): take {' → '.join(r.optimal_path)}. "
+            f"Expected value {r.expected_value:,.2f}."
+        )
+    else:
+        rec = f"Expected value {r.expected_value:,.2f} ({direction})."
+
+    written = False
+    sheet: str | None = None
+    if not dry_run:
+        bridge = get_bridge()
+        sheet = bridge.write_tree(model_json, sheet_name=sheet_name, workbook=workbook_name)
+        bridge.render_tree(sheet, workbook_name)
+        written = True
+
+    return BuildTreeResult(
+        written=written,
+        sheet=sheet,
+        node_count=len(parsed.nodes),
+        expected_value=r.expected_value,
+        optimal_path=r.optimal_path,
+        recommendation=rec,
+        model_json=model_json,
     )
 
 
@@ -1136,8 +1215,10 @@ __all__ = [
     "build_control_panel",
     "build_tree",
     "edit_tree",
+    "export_tree_json",
     "get_bridge",
     "get_tree",
+    "import_tree_json",
     "list_trees",
     "read_sheet",
     "roll_up",
