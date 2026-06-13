@@ -166,6 +166,57 @@ def build_tree(
     )
 
 
+_AHP_RANDOM_INDEX = [
+    0.0, 0.0, 0.58, 0.90, 1.12, 1.24, 1.32, 1.41, 1.45, 1.49,
+    1.51, 1.48, 1.56, 1.57, 1.59,
+]
+
+
+def _ahp_weights(matrix: list[list[float]]) -> tuple[list[float], float]:
+    """AHP principal-eigenvector weights + consistency ratio, mirroring the
+    add-in's AhpCalculator (power iteration; Saaty's RI table). `matrix` is an
+    n-by-n positive reciprocal pairwise-comparison matrix; returns (weights, CR)."""
+    n = len(matrix)
+    w = [1.0 / n] * n
+    for _ in range(100):
+        t = [sum(matrix[i][j] * w[j] for j in range(n)) for i in range(n)]
+        s = sum(t)
+        if s < 1e-15:
+            raise ValueError("ahp_matrix is degenerate (zero column sum).")
+        t = [x / s for x in t]
+        converged = max(abs(t[i] - w[i]) for i in range(n)) < 1e-10
+        w = t
+        if converged:
+            break
+    if n <= 2:
+        return w, 0.0
+    lam = 0.0
+    for i in range(n):
+        aw = sum(matrix[i][j] * w[j] for j in range(n))
+        if w[i] > 1e-15:
+            lam += aw / w[i]
+    lam /= n
+    ci = (lam - n) / (n - 1)
+    ri = _AHP_RANDOM_INDEX[min(n, len(_AHP_RANDOM_INDEX)) - 1]
+    return w, (ci / ri if ri > 1e-15 else 0.0)
+
+
+def _validate_ahp_matrix(matrix: list[list[float]] | None, n: int) -> list[list[float]]:
+    """Validate an AHP matrix is present, n-by-n, and strictly positive."""
+    if not matrix:
+        raise ValueError("weight_source='ahp' requires ahp_matrix.")
+    if len(matrix) != n or any(len(row) != n for row in matrix):
+        raise ValueError(
+            f"ahp_matrix must be {n}x{n} (financial + {n - 1} criteria), "
+            "ordered [financial, then criteria in spec order]."
+        )
+    for i, row in enumerate(matrix):
+        for j, v in enumerate(row):
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+                raise ValueError(f"ahp_matrix[{i}][{j}] must be a positive number.")
+    return matrix
+
+
 @mcp.tool(
     description=(
         "ModelChoice: Build a MULTI-CRITERIA (MCDA) decision model — when the "
@@ -175,9 +226,13 @@ def build_tree(
         "an aggregation method (weighted_sum / weighted_geometric / waspas), and "
         "each terminal's option per criterion (`terminal_scores`). The tool "
         "validates structure + weights + that every score references a real "
-        "criterion option. dry_run=True (default) previews; dry_run=False builds "
-        "the tree, sets MCDA mode, and renders — the add-in computes the "
-        "composite scores. Needs the add-in loaded (a build with the MCDA command)."
+        "criterion option. Weights are entered directly (weight_source='direct') "
+        "OR derived from an AHP pairwise-comparison matrix (weight_source='ahp' "
+        "with `ahp_matrix` — the tool computes the eigenvector weights + "
+        "consistency ratio and the add-in recomputes them authoritatively). "
+        "dry_run=True (default) previews; dry_run=False builds the tree, sets MCDA "
+        "mode, and renders — the add-in computes the composite scores. Needs the "
+        "add-in loaded (a build with the MCDA command)."
     )
 )
 def build_mcda(
@@ -197,8 +252,6 @@ def build_mcda(
         if len(c.options) < 2:
             raise ValueError(f"criterion {c.id!r} needs >=2 options.")
         crit_by_id[c.id] = c
-    weight_sum = mcda.financial_weight + sum(c.weight for c in mcda.criteria)
-
     term_ids = {n.id for n in tree.nodes if n.type.lower() == "terminal"}
     for tid, scores in mcda.terminal_scores.items():
         if tid not in term_ids:
@@ -214,9 +267,31 @@ def build_mcda(
 
     crit_names = [c.name for c in mcda.criteria]
     scored = len(mcda.terminal_scores)
-    weight_note = (
-        "" if abs(weight_sum - 1.0) < 1e-3 else f" (weights sum {weight_sum:.3f}, not 1.0)"
-    )
+    ws = mcda.weight_source.strip().lower()
+
+    # Resolve effective weights for preview/reporting. For AHP the matrix is
+    # authoritative (the add-in recomputes it on commit); we mirror the math
+    # here so the preview shows the derived weights + consistency ratio.
+    consistency_ratio: float | None = None
+    ahp_matrix: list[list[float]] | None = None
+    if ws == "ahp":
+        ahp_matrix = _validate_ahp_matrix(mcda.ahp_matrix, len(mcda.criteria) + 1)
+        derived, consistency_ratio = _ahp_weights(ahp_matrix)
+        financial_w, crit_w = derived[0], derived[1:]
+        weight_note = f" AHP weights (CR={consistency_ratio:.3f}" + (
+            "; INCONSISTENT, CR>0.10 — consider revising judgments)"
+            if consistency_ratio > 0.10
+            else ")"
+        )
+    else:
+        financial_w = mcda.financial_weight
+        crit_w = [c.weight for c in mcda.criteria]
+        total = financial_w + sum(crit_w)
+        weight_note = "" if abs(total - 1.0) < 1e-3 else f" (weights sum {total:.3f}, not 1.0)"
+
+    weights_kv = [KeyValue(label="Financial", value=round(financial_w, 4))] + [
+        KeyValue(label=c.name, value=round(crit_w[i], 4)) for i, c in enumerate(mcda.criteria)
+    ]
 
     if dry_run:
         return McdaBuildResult(
@@ -225,19 +300,23 @@ def build_mcda(
             node_count=len(t.nodes),
             criteria=crit_names,
             terminals_scored=scored,
+            weight_source=ws,
+            weights=weights_kv,
+            consistency_ratio=consistency_ratio,
             note=(
                 f"Validated MCDA preview: {len(crit_names)} criteria, {scored} terminals "
-                f"scored{weight_note}. Composite scores are computed by the add-in on commit."
+                f"scored;{weight_note}. Composite scores are computed by the add-in on commit."
             ),
         )
 
     bridge = get_bridge()
     sheet = bridge.write_tree(model_json, workbook=workbook_name)
     bridge.render_tree(sheet, workbook_name)
-    spec = {
+    spec: dict[str, Any] = {
         "financialWeight": mcda.financial_weight,
         "aggregation": mcda.aggregation,
         "waspasLambda": mcda.waspas_lambda,
+        "weightSource": ws,
         "criteria": [
             {
                 "id": c.id,
@@ -250,6 +329,8 @@ def build_mcda(
         ],
         "terminalScores": mcda.terminal_scores,
     }
+    if ahp_matrix is not None:
+        spec["ahpMatrix"] = ahp_matrix
     bridge.apply_mcda(json.dumps(spec), workbook_name)
     return McdaBuildResult(
         written=True,
@@ -257,6 +338,9 @@ def build_mcda(
         node_count=len(t.nodes),
         criteria=crit_names,
         terminals_scored=scored,
+        weight_source=ws,
+        weights=weights_kv,
+        consistency_ratio=consistency_ratio,
         note=(
             f"Built MCDA model on {sheet!r}: {len(crit_names)} criteria, {scored} "
             f"terminals scored, aggregation {mcda.aggregation}{weight_note}."

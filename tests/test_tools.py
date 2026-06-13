@@ -596,6 +596,77 @@ def test_build_mcda_bad_option_raises(bridge: _FakeBridge) -> None:
         tools.build_mcda(tree, mcda)
 
 
+def _mcda_ahp_specs():
+    """Two non-financial criteria + a consistent 3x3 AHP matrix
+    [financial, cost, safety] proportional to weights [4, 2, 1]."""
+    from modelchoice_mcp.schemas import BranchSpec, CriterionSpec, McdaSpec, NodeSpec, TreeSpec
+
+    tree = TreeSpec(
+        root_id="D", model_name="Site", maximize=True,
+        nodes=[
+            NodeSpec(id="D", type="decision", name="Site", branches=[
+                BranchSpec(name="A", child_id="T1"),
+                BranchSpec(name="B", child_id="T2")]),
+            NodeSpec(id="T1", type="terminal", name="A", value=0),
+            NodeSpec(id="T2", type="terminal", name="B", value=0),
+        ],
+    )
+    mcda = McdaSpec(
+        criteria=[
+            CriterionSpec(id="cost", name="Cost", weight=0.0, maximize=False,
+                          options=["High", "Low"]),
+            CriterionSpec(id="safety", name="Safety", weight=0.0, maximize=True,
+                          options=["Low", "High"]),
+        ],
+        weight_source="ahp",
+        ahp_matrix=[[1.0, 2.0, 4.0], [0.5, 1.0, 2.0], [0.25, 0.5, 1.0]],
+        terminal_scores={"T1": {"cost": "Low", "safety": "Low"},
+                         "T2": {"cost": "High", "safety": "High"}},
+    )
+    return tree, mcda
+
+
+def test_build_mcda_ahp_dry_run(bridge: _FakeBridge) -> None:
+    tree, mcda = _mcda_ahp_specs()
+    out = tools.build_mcda(tree, mcda)
+    assert out.weight_source == "ahp"
+    # Perfectly consistent matrix -> CR ~ 0.
+    assert out.consistency_ratio is not None and out.consistency_ratio < 0.01
+    by_label = {kv.label: kv.value for kv in out.weights}
+    assert by_label["Financial"] == pytest.approx(4 / 7, abs=1e-3)
+    assert by_label["Cost"] == pytest.approx(2 / 7, abs=1e-3)
+    assert by_label["Safety"] == pytest.approx(1 / 7, abs=1e-3)
+
+
+def test_build_mcda_ahp_commit_sends_matrix() -> None:
+    fake = _FakeBridge({})
+    tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
+    try:
+        tree, mcda = _mcda_ahp_specs()
+        out = tools.build_mcda(tree, mcda, dry_run=False)
+        assert out.written is True and out.weight_source == "ahp"
+        import json as _json
+        spec = _json.loads(fake.mcda_spec)
+        assert spec["weightSource"] == "ahp"
+        assert spec["ahpMatrix"] == [[1.0, 2.0, 4.0], [0.5, 1.0, 2.0], [0.25, 0.5, 1.0]]
+    finally:
+        tools.set_bridge_for_testing(None)
+
+
+def test_build_mcda_ahp_missing_matrix_raises(bridge: _FakeBridge) -> None:
+    tree, mcda = _mcda_ahp_specs()
+    mcda.ahp_matrix = None
+    with pytest.raises(ValueError, match="requires ahp_matrix"):
+        tools.build_mcda(tree, mcda)
+
+
+def test_build_mcda_ahp_bad_size_raises(bridge: _FakeBridge) -> None:
+    tree, mcda = _mcda_ahp_specs()
+    mcda.ahp_matrix = [[1.0, 2.0], [0.5, 1.0]]  # 2x2, need 3x3 (financial + 2 criteria)
+    with pytest.raises(ValueError, match="3x3"):
+        tools.build_mcda(tree, mcda)
+
+
 def test_run_scenarios_compares(bridge: _FakeBridge) -> None:
     from modelchoice_mcp.schemas import ScenarioComparison, ScenarioSpec
 

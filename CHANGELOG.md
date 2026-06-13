@@ -3,6 +3,15 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.25
+- **`build_mcda` gains AHP weight elicitation (AB#2646)** — set
+  `weight_source="ahp"` and pass an `ahp_matrix` (Saaty 1-9 pairwise comparisons,
+  `(1 + criteria)` square, ordered `[financial, …criteria]`) instead of direct
+  weights. The tool computes the eigenvector weights + consistency ratio for the
+  preview and forwards `weightSource`/`ahpMatrix` to `MC_ApplyMcda_Auto`, which
+  recomputes them authoritatively (CR surfaced; CR > 0.10 flagged inconsistent).
+  `McdaBuildResult` now reports `weight_source`, `weights`, `consistency_ratio`.
+
 ## 0.0.24
 - **`/decision-tree-monte-carlo` prompt** — guides the cross-server Monte Carlo
   hand-off: assign `Vose*` distributions to a tree's uncertain inputs

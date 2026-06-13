@@ -7,7 +7,7 @@ from modelchoice_mcp.server import mcp
 
 
 def test_version_set() -> None:
-    assert __version__ == "0.0.24"
+    assert __version__ == "0.0.25"
 
 
 def test_server_name() -> None:

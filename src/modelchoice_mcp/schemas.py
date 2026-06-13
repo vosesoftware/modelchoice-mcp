@@ -211,6 +211,11 @@ class ScenarioComparison(BaseModel):
     note: str
 
 
+class KeyValue(BaseModel):
+    label: str
+    value: Any
+
+
 class CriterionSpec(BaseModel):
     """One non-financial MCDA criterion with discrete ordinal options."""
 
@@ -240,6 +245,22 @@ class McdaSpec(BaseModel):
         default_factory=dict,
         description="Per terminal: {terminal_id: {criterion_id: option_label}}.",
     )
+    weight_source: str = Field(
+        default="direct",
+        description=(
+            "'direct' uses the per-criterion `weight` + `financial_weight` fields; "
+            "'ahp' derives all weights from `ahp_matrix` (those fields are ignored)."
+        ),
+    )
+    ahp_matrix: list[list[float]] | None = Field(
+        default=None,
+        description=(
+            "AHP pairwise comparison matrix on Saaty's 1-9 scale — required when "
+            "weight_source='ahp'. Must be (1 + number_of_criteria) square, ordered "
+            "[financial, criterion0, criterion1, ...], positive, and reciprocal "
+            "across the diagonal (a[j][i] = 1/a[i][j], diagonal = 1)."
+        ),
+    )
 
 
 class McdaBuildResult(BaseModel):
@@ -250,6 +271,17 @@ class McdaBuildResult(BaseModel):
     node_count: int
     criteria: list[str] = Field(description="Criterion names defined.")
     terminals_scored: int
+    weight_source: str = Field(
+        default="direct", description="'direct' or 'ahp' — how the weights were set."
+    )
+    weights: list[KeyValue] = Field(
+        default_factory=list,
+        description="Effective weights (label -> weight): 'Financial' + each criterion.",
+    )
+    consistency_ratio: float | None = Field(
+        default=None,
+        description="AHP consistency ratio (CR < 0.10 acceptable); None for direct weights.",
+    )
     note: str
 
 
@@ -311,11 +343,6 @@ class SheetData(BaseModel):
     row_count: int
     rows: list[list[Any]] = Field(description="Cell values, row-major (numbers, text, or null).")
     truncated: bool = Field(description="True if the sheet had more rows/cols than returned.")
-
-
-class KeyValue(BaseModel):
-    label: str
-    value: Any
 
 
 class RobustnessSummary(BaseModel):
