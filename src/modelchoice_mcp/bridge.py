@@ -13,6 +13,7 @@ reads cell values only.
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, ClassVar
 
 from modelchoice_mcp.store import STORE_SHEET_NAME, parse_store, reassemble_chunks
@@ -58,6 +59,49 @@ class ModelChoiceBridge:
             if b.name == workbook:
                 return b
         raise ModelChoiceNotFoundError(f"Workbook {workbook!r} is not open.")
+
+    def open_workbook(self, path: str) -> dict[str, Any]:
+        """Open a workbook from disk in the running Excel and report its
+        sheets + any ModelChoice trees it contains. If a workbook with the
+        same file name is already open, that one is used (Excel won't open two
+        with the same name). Raises if Excel isn't running, the file is
+        missing, or Excel can't open it."""
+        xw = self._load_xw()
+        app = xw.apps.active
+        if app is None:
+            raise ExcelNotRunningError(
+                "No running Excel instance found. Open Excel (with the ModelChoice "
+                "add-in) first, then open the workbook."
+            )
+        self._harden_attach(app)
+        if not os.path.isfile(path):
+            raise ModelChoiceNotFoundError(f"File not found: {path!r}.")
+        name = os.path.basename(path)
+        book = None
+        for b in app.books:
+            try:
+                if str(b.name).lower() == name.lower():
+                    book = b
+                    break
+            except Exception:
+                continue
+        if book is None:
+            try:
+                book = app.books.open(path)
+            except Exception as exc:
+                raise ModelChoiceNotFoundError(f"Excel could not open {path!r}: {exc}") from exc
+        wb_name = str(book.name)
+        try:
+            sheets = [s.name for s in book.sheets]
+        except Exception:
+            sheets = []
+        # ModelChoice tree sheets, if this is a ModelChoice workbook.
+        try:
+            raw = self.read_store_raw(wb_name)
+            trees = list(parse_store(raw)) if raw else []
+        except Exception:
+            trees = []
+        return {"workbook": wb_name, "sheets": sheets, "trees": trees}
 
     @staticmethod
     def _harden_attach(app: Any) -> None:

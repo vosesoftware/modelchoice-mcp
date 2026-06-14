@@ -303,6 +303,17 @@ class InputDistributionResult(BaseModel):
     note: str
 
 
+class OpenWorkbookResult(BaseModel):
+    """Outcome of opening a workbook from disk in the running Excel."""
+
+    workbook: str = Field(description="The opened workbook's file name (now active).")
+    sheets: list[str] = Field(description="Worksheet names in the workbook.")
+    trees: list[str] = Field(
+        description="ModelChoice tree sheets found in the workbook (empty if none)."
+    )
+    note: str
+
+
 class TreeExport(BaseModel):
     """A tree's stored ModelChoice model JSON, for saving or sharing."""
 

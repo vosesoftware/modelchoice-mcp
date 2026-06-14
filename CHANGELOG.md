@@ -3,6 +3,12 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.26
+- **`open_workbook`** — open a decision-tree workbook (.xlsx) from disk in the
+  running Excel so the other tools can act on it. Reports the workbook's sheets
+  and any ModelChoice tree sheets it contains; reuses an already-open workbook
+  of the same name. (Mirrors the new `open_workbook` in modelrisk-mcp.)
+
 ## 0.0.25
 - **`build_mcda` gains AHP weight elicitation (AB#2646)** — set
   `weight_source="ahp"` and pass an `ahp_matrix` (Saaty 1-9 pairwise comparisons,

@@ -31,6 +31,7 @@ from modelchoice_mcp.schemas import (
     NodeDiff,
     NodeResultView,
     NodeView,
+    OpenWorkbookResult,
     RiskProfileReport,
     RiskProfileSeries,
     RobustnessSummary,
@@ -534,6 +535,36 @@ def _counts(tree: DecisionTree) -> tuple[int, int, int]:
     c = sum(1 for n in tree.nodes.values() if n.kind == "chance")
     t = sum(1 for n in tree.nodes.values() if n.kind == "terminal")
     return d, c, t
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Open a workbook (.xlsx) from disk in the running Excel so "
+        "the other tools can act on it. Pass an absolute file path. Reports the "
+        "workbook's sheets and any ModelChoice tree sheets it contains (so you "
+        "can tell at a glance whether it's a decision-tree workbook). If a "
+        "workbook with the same file name is already open, that one is used. "
+        "Requires Excel running (with the ModelChoice add-in for rendering)."
+    )
+)
+def open_workbook(
+    path: Annotated[
+        str,
+        Field(description="Absolute path to the workbook, e.g. r'C:\\models\\oil.xlsx'."),
+    ],
+) -> OpenWorkbookResult:
+    r = get_bridge().open_workbook(path)
+    trees = r.get("trees", [])
+    wb = r.get("workbook", "")
+    note = (
+        f"Opened {wb!r} with {len(trees)} ModelChoice tree(s): {', '.join(trees)}."
+        if trees
+        else f"Opened {wb!r} — no ModelChoice trees found (it's not a ModelChoice workbook, "
+        "or the tree store is absent)."
+    )
+    return OpenWorkbookResult(
+        workbook=wb, sheets=r.get("sheets", []), trees=trees, note=note
+    )
 
 
 @mcp.tool(
@@ -1591,6 +1622,7 @@ __all__ = [
     "import_precisiontree",
     "import_tree_json",
     "list_trees",
+    "open_workbook",
     "read_sheet",
     "roll_up",
     "run_analysis",

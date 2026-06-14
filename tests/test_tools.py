@@ -141,6 +141,14 @@ class _FakeBridge:
         self.input_formula = (named_range, formula)
         return sheet_name or "MC_Tree_1"
 
+    def open_workbook(self, path: str) -> dict[str, object]:
+        self.opened_path = path
+        return {
+            "workbook": "oil.xlsx",
+            "sheets": ["MC_Tree_1", "_MC_Store"],
+            "trees": ["MC_Tree_1"],
+        }
+
     def write_tree(self, model_json: str, sheet_name: str | None = None,
                    workbook: str | None = None) -> str:
         self.written_json = model_json
@@ -280,6 +288,17 @@ def test_build_control_panel_parses_inputs(bridge: _FakeBridge) -> None:
     assert "Drill?: Sell — value" in labels
     assert "Input" not in labels
     assert "persist across re-renders" in out.note
+
+
+def test_open_workbook(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import OpenWorkbookResult
+
+    out = tools.open_workbook(r"C:\models\oil.xlsx")
+    assert isinstance(out, OpenWorkbookResult)
+    assert bridge.opened_path == r"C:\models\oil.xlsx"
+    assert out.workbook == "oil.xlsx"
+    assert out.trees == ["MC_Tree_1"]
+    assert "MC_Tree_1" in out.note
 
 
 def test_set_input_distribution_value(bridge: _FakeBridge) -> None:
