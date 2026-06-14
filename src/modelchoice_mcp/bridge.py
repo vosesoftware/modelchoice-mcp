@@ -103,6 +103,18 @@ class ModelChoiceBridge:
             trees = []
         return {"workbook": wb_name, "sheets": sheets, "trees": trees}
 
+    def close_workbook(self, workbook: str, save: bool = False) -> dict[str, Any]:
+        """Close an open workbook by file name. If ``save`` is False (default)
+        UNSAVED CHANGES ARE DISCARDED; pass save=True to write them first.
+        Raises if Excel isn't running or the workbook isn't open."""
+        book = self._book(workbook)  # raises if not open
+        name = str(book.name)
+        try:
+            book.api.Close(SaveChanges=bool(save))
+        except Exception as exc:
+            raise ModelChoiceNotFoundError(f"Could not close {workbook!r}: {exc}") from exc
+        return {"closed": name, "saved": bool(save)}
+
     @staticmethod
     def _harden_attach(app: Any) -> None:
         """Make the COM attach robust against a loaded ModelChoice add-in.

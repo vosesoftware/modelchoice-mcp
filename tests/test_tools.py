@@ -149,6 +149,10 @@ class _FakeBridge:
             "trees": ["MC_Tree_1"],
         }
 
+    def close_workbook(self, workbook: str, save: bool = False) -> dict[str, object]:
+        self.closed = (workbook, save)
+        return {"closed": workbook, "saved": save}
+
     def write_tree(self, model_json: str, sheet_name: str | None = None,
                    workbook: str | None = None) -> str:
         self.written_json = model_json
@@ -299,6 +303,23 @@ def test_open_workbook(bridge: _FakeBridge) -> None:
     assert out.workbook == "oil.xlsx"
     assert out.trees == ["MC_Tree_1"]
     assert "MC_Tree_1" in out.note
+
+
+def test_close_workbook(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import CloseWorkbookResult
+
+    out = tools.close_workbook("oil.xlsx", save=True)
+    assert isinstance(out, CloseWorkbookResult)
+    assert bridge.closed == ("oil.xlsx", True)
+    assert out.workbook == "oil.xlsx" and out.saved is True
+    assert "saved" in out.note
+
+
+def test_close_workbook_discards_by_default(bridge: _FakeBridge) -> None:
+    out = tools.close_workbook("oil.xlsx")
+    assert bridge.closed == ("oil.xlsx", False)
+    assert out.saved is False
+    assert "discarded" in out.note
 
 
 def test_set_input_distribution_value(bridge: _FakeBridge) -> None:

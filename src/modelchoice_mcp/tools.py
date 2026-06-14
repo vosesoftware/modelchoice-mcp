@@ -18,6 +18,7 @@ from modelchoice_mcp.schemas import (
     AnalysisRun,
     BranchView,
     BuildTreeResult,
+    CloseWorkbookResult,
     ControlPanelResult,
     DecisionReport,
     EditOp,
@@ -565,6 +566,32 @@ def open_workbook(
     return OpenWorkbookResult(
         workbook=wb, sheets=r.get("sheets", []), trees=trees, note=note
     )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Close an open workbook by file name. By DEFAULT unsaved "
+        "changes are DISCARDED (save=False) — pass save=True to write them "
+        "first. The counterpart to open_workbook. Raises if Excel isn't running "
+        "or the named workbook isn't open."
+    )
+)
+def close_workbook(
+    workbook_name: Annotated[
+        str, Field(description="File name of an open workbook, e.g. 'oil.xlsx'.")
+    ],
+    save: Annotated[
+        bool,
+        Field(description="Save before closing. False (default) discards unsaved changes."),
+    ] = False,
+) -> CloseWorkbookResult:
+    r = get_bridge().close_workbook(workbook_name, save)
+    closed = r.get("closed", workbook_name)
+    saved = bool(r.get("saved", save))
+    note = (
+        f"Closed {closed!r}" + (" (saved)." if saved else " — unsaved changes discarded.")
+    )
+    return CloseWorkbookResult(workbook=closed, saved=saved, note=note)
 
 
 @mcp.tool(
@@ -1615,6 +1642,7 @@ __all__ = [
     "build_control_panel",
     "build_mcda",
     "build_tree",
+    "close_workbook",
     "edit_tree",
     "export_tree_json",
     "get_bridge",

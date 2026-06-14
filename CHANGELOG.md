@@ -3,6 +3,12 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.27
+- **`close_workbook`** — close an open workbook by file name (counterpart to
+  `open_workbook`). By default unsaved changes are discarded (`save=False`);
+  pass `save=True` to write them first. (Mirrors `close_workbook` in
+  modelrisk-mcp.)
+
 ## 0.0.26
 - **`open_workbook`** — open a decision-tree workbook (.xlsx) from disk in the
   running Excel so the other tools can act on it. Reports the workbook's sheets

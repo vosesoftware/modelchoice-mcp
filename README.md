@@ -4,7 +4,7 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.26` — Phase 3 (build + drive).** 23 tools: build_tree / build_mcda / edit_tree (incl. add/remove options & outcomes) / set_input_distribution (put a Vose distribution on an input) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
+> **Status: `0.0.27` — Phase 3 (build + drive).** 24 tools: build_tree / build_mcda / edit_tree (incl. add/remove options & outcomes) / set_input_distribution (put a Vose distribution on an input) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
@@ -18,6 +18,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `export_tree_json` / `import_tree_json` | Round-trip a tree's raw ModelChoice JSON — export to save/share/version, import (validated) to write it back into a workbook. |
 | `import_precisiontree` | Import a PrecisionTree workbook (.xls/.xlsx) into ModelChoice — converts a copy (original untouched). Drives `MC_ImportPrecisionTree_Auto`. |
 | `open_workbook` | **Open a workbook (.xlsx) from disk** in the running Excel so the other tools can act on it. Reports its sheets + any ModelChoice tree sheets; reuses an already-open workbook of the same name. |
+| `close_workbook` | **Close an open workbook** by file name (counterpart to `open_workbook`). Discards unsaved changes by default; pass `save=True` to save first. |
 | `list_trees` | List the decision trees in a workbook with node-type counts. |
 | `get_tree` | Full structure of one tree — decision / chance / terminal nodes, branches, probabilities, values. |
 | `roll_up` | Roll the tree back to its expected values and **optimal policy** — the decision recommendation, in plain English. |

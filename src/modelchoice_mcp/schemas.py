@@ -314,6 +314,14 @@ class OpenWorkbookResult(BaseModel):
     note: str
 
 
+class CloseWorkbookResult(BaseModel):
+    """Outcome of closing an open workbook."""
+
+    workbook: str = Field(description="The workbook that was closed.")
+    saved: bool = Field(description="Whether it was saved before closing.")
+    note: str
+
+
 class TreeExport(BaseModel):
     """A tree's stored ModelChoice model JSON, for saving or sharing."""
 
