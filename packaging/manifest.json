@@ -1,0 +1,28 @@
+{
+  "manifest_version": "0.3",
+  "name": "modelchoice-mcp",
+  "display_name": "ModelChoice",
+  "version": "0.0.0",
+  "description": "Build, read, roll back, and analyse decision trees in Excel through Vose Software's ModelChoice.",
+  "author": {
+    "name": "Vose Software",
+    "url": "https://www.vosesoftware.com"
+  },
+  "homepage": "https://github.com/vosesoftware/modelchoice-mcp",
+  "documentation": "https://github.com/vosesoftware/modelchoice-mcp",
+  "keywords": ["excel", "decision-tree", "decision-analysis", "modelchoice", "mcda", "evpi"],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/modelchoice-mcp.exe",
+    "mcp_config": {
+      "command": "${__dirname}${/}server${/}modelchoice-mcp.exe",
+      "args": [],
+      "env": {}
+    }
+  },
+  "tools_generated": true,
+  "prompts_generated": true,
+  "compatibility": {
+    "platforms": ["win32"]
+  }
+}

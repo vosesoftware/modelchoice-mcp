@@ -3,6 +3,15 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.28
+- **One-click install: Claude Desktop Extension (`.mcpb`)** — the release now
+  also builds a standalone Windows `.exe` (new PyInstaller spec) and wraps it in
+  a `.mcpb` Desktop Extension attached to the GitHub release. Installing into
+  Claude Desktop becomes **1. open `modelchoice-mcp.mcpb`  2. restart Claude** —
+  no Python, no `claude_desktop_config.json` editing. Built CLI-free in CI
+  (`scripts/build_mcpb.py`); the bundle version is injected from the release tag.
+  Excel + the ModelChoice add-in are still required for rendering.
+
 ## 0.0.27
 - **`close_workbook`** — close an open workbook by file name (counterpart to
   `open_workbook`). By default unsaved changes are discarded (`save=False`);

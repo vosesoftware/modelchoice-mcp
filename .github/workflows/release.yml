@@ -1,5 +1,7 @@
-# Release pipeline. On a version tag (v*), build the wheel + sdist,
-# publish to PyPI via trusted publishing, and cut a GitHub release.
+# Release pipeline. On a version tag (v*): build the wheel + sdist and a
+# standalone Windows .exe, wrap the exe in a one-click Claude Desktop
+# Extension (.mcpb), publish to PyPI via trusted publishing, and cut a
+# GitHub release with the wheel + exe + .mcpb attached.
 #
 # One-time setup before the first tag:
 #   1. Create the PyPI project's trusted publisher
@@ -28,6 +30,55 @@ jobs:
           name: dist
           path: dist/
 
+  build-windows-exe:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Install dependencies (incl. dev for pyinstaller)
+        run: uv sync --extra dev
+
+      - name: Build single-file .exe
+        run: uv run pyinstaller modelchoice_mcp.spec --clean --noconfirm
+
+      - name: Verify .exe boots and answers MCP initialize
+        shell: bash
+        run: |
+          INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0.1"}}}'
+          OUT=$(echo "$INIT" | timeout 15 ./dist/modelchoice-mcp.exe || true)
+          echo "$OUT"
+          echo "$OUT" | grep -q '"serverInfo"' || (echo "exe did not return a serverInfo block" && exit 1)
+          echo "$OUT" | grep -q '"modelchoice-mcp"' || (echo "exe did not identify as modelchoice-mcp" && exit 1)
+
+      - name: Build .mcpb Desktop Extension
+        # Wrap the standalone exe in a one-click Claude Desktop Extension
+        # bundle. Version is injected from the tag so it matches the release.
+        shell: bash
+        run: |
+          uv run python scripts/build_mcpb.py dist/modelchoice-mcp.exe "${GITHUB_REF_NAME#v}" dist/modelchoice-mcp.mcpb
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/modelchoice-mcp.exe
+
+      - name: Upload .mcpb Desktop Extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcpb-bundle
+          path: dist/modelchoice-mcp.mcpb
+
   publish-pypi:
     needs: build
     runs-on: ubuntu-latest
@@ -43,7 +94,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
-    needs: publish-pypi
+    needs: [publish-pypi, build-windows-exe]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -51,9 +102,22 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: dist
-          path: dist/
+          path: artifacts/dist
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: artifacts/windows
+      - name: Download .mcpb Desktop Extension
+        uses: actions/download-artifact@v4
+        with:
+          name: mcpb-bundle
+          path: artifacts/mcpb
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            artifacts/dist/*
+            artifacts/windows/modelchoice-mcp.exe
+            artifacts/mcpb/modelchoice-mcp.mcpb
           generate_release_notes: true
