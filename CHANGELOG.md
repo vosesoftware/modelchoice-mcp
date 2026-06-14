@@ -8,6 +8,11 @@ All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
   `open_workbook`). By default unsaved changes are discarded (`save=False`);
   pass `save=True` to write them first. (Mirrors `close_workbook` in
   modelrisk-mcp.)
+- **`open_workbook` suppresses Excel's open prompts** — `Workbooks.Open` is now
+  called with `update_links=False`, `ignore_read_only_recommended=True`,
+  `notify=False`, `add_to_mru=False` and with `DisplayAlerts`/`AskToUpdateLinks`
+  off, so a headless open can't hang on an Update-Links / read-only dialog.
+  (External links aren't refreshed on open; values stay as last saved.)
 
 ## 0.0.26
 - **`open_workbook`** — open a decision-tree workbook (.xlsx) from disk in the
