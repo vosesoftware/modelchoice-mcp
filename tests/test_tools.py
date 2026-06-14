@@ -153,6 +153,12 @@ class _FakeBridge:
         self.closed = (workbook, save)
         return {"closed": workbook, "saved": save}
 
+    def license_status(self, workbook: str | None = None) -> dict[str, object]:
+        return getattr(self, "_license", {
+            "isComplete": True, "isTrial": False, "isExpired": False,
+            "isNotActivated": False, "daysLeft": 365, "statusText": "Licensed",
+        })
+
     def write_tree(self, model_json: str, sheet_name: str | None = None,
                    workbook: str | None = None) -> str:
         self.written_json = model_json
@@ -292,6 +298,40 @@ def test_build_control_panel_parses_inputs(bridge: _FakeBridge) -> None:
     assert "Drill?: Sell — value" in labels
     assert "Input" not in labels
     assert "persist across re-renders" in out.note
+
+
+def test_license_status_tool_licensed(bridge: _FakeBridge) -> None:
+    from modelchoice_mcp.schemas import LicenseStatus
+
+    out = tools.license_status()
+    assert isinstance(out, LicenseStatus)
+    assert out.available is True and out.is_complete is True
+    assert out.actions_allowed is True
+    assert out.days_left == 365
+
+
+def test_license_status_tool_unavailable(bridge: _FakeBridge) -> None:
+    bridge._license = {}  # type: ignore[attr-defined]
+    out = tools.license_status()
+    assert out.available is False and out.actions_allowed is False
+    assert "blocked" in out.note.lower()
+
+
+def test_require_license_gate() -> None:
+    from modelchoice_mcp.bridge import LicenseRequiredError, ModelChoiceBridge
+
+    b = ModelChoiceBridge()
+    # Fully licensed -> passes.
+    b.license_status = lambda workbook=None: {"isComplete": True}  # type: ignore[method-assign]
+    b._require_license()  # no raise
+    # Trial -> blocked with a clear state.
+    b.license_status = lambda workbook=None: {"isComplete": False, "isTrial": True}  # type: ignore[method-assign]
+    with pytest.raises(LicenseRequiredError, match="trial"):
+        b._require_license()
+    # Unreadable status -> fail-closed.
+    b.license_status = lambda workbook=None: {}  # type: ignore[method-assign]
+    with pytest.raises(LicenseRequiredError, match="Could not verify"):
+        b._require_license()
 
 
 def test_open_workbook(bridge: _FakeBridge) -> None:

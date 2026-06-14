@@ -314,6 +314,26 @@ class OpenWorkbookResult(BaseModel):
     note: str
 
 
+class LicenseStatus(BaseModel):
+    """ModelChoice licence state read from the add-in (MC_LicenseStatus_Auto).
+    Building / analysis actions require a FULL licence (`is_complete`);
+    reading trees works regardless."""
+
+    available: bool = Field(
+        description="True if the add-in reported a status (loaded + has the command)."
+    )
+    is_complete: bool = Field(description="Fully licensed — actions are allowed.")
+    is_trial: bool = False
+    is_expired: bool = False
+    is_not_activated: bool = False
+    days_left: int | None = None
+    status_text: str | None = None
+    actions_allowed: bool = Field(
+        description="Whether licence-gated actions (build/analysis) are permitted."
+    )
+    note: str
+
+
 class CloseWorkbookResult(BaseModel):
     """Outcome of closing an open workbook."""
 

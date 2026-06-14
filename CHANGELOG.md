@@ -3,6 +3,19 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.29
+- **Licence gate (AB#2659)** — building and analysis ACTIONS now require a fully
+  licensed ModelChoice. The bridge reads the add-in's licence state via the new
+  headless `MC_LicenseStatus_Auto` and refuses actions (build/edit commit,
+  build_mcda, control panel, set_input_distribution, run_utility / evii / evpi /
+  risk_profile / decision_report / robustness / sensitivity / analysis, import)
+  unless `isComplete` (full licence). **Reading is unaffected** — list/get/roll_up/
+  verify/scenarios/export and open/close workbook work regardless. New read-only
+  **`license_status`** tool reports the state. Fail-closed: if the status can't be
+  read (add-in missing/old), actions are blocked with an actionable message.
+  (Trial/expired users can read but not drive actions.) Needs the add-in build
+  with `MC_LicenseStatus_Auto`.
+
 ## 0.0.28
 - **One-click install: Claude Desktop Extension (`.mcpb`)** — the release now
   also builds a standalone Windows `.exe` (new PyInstaller spec) and wraps it in

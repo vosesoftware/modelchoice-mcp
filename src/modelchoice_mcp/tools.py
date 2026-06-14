@@ -27,6 +27,7 @@ from modelchoice_mcp.schemas import (
     ImportResult,
     InputDistributionResult,
     KeyValue,
+    LicenseStatus,
     McdaBuildResult,
     McdaSpec,
     NodeDiff,
@@ -565,6 +566,51 @@ def open_workbook(
     )
     return OpenWorkbookResult(
         workbook=wb, sheets=r.get("sheets", []), trees=trees, note=note
+    )
+
+
+@mcp.tool(
+    description=(
+        "ModelChoice: Report the ModelChoice add-in's licence state (fully "
+        "licensed / trial / expired / not activated). Building and analysis "
+        "ACTIONS require a FULL licence; reading trees works regardless. Use "
+        "this to explain why an action was refused. Read-only."
+    )
+)
+def license_status(workbook_name: str | None = None) -> LicenseStatus:
+    s = get_bridge().license_status(workbook_name)
+    if not s:
+        return LicenseStatus(
+            available=False,
+            is_complete=False,
+            actions_allowed=False,
+            note=(
+                "Could not read the licence status — the ModelChoice add-in isn't "
+                "loaded, or is older than the MC_LicenseStatus_Auto command. "
+                "Building/analysis actions are blocked until a licensed add-in reports in."
+            ),
+        )
+    is_complete = bool(s.get("isComplete"))
+    days = s.get("daysLeft")
+    days_left = int(days) if isinstance(days, (int, float)) and not isinstance(days, bool) else None
+    note = (
+        "Fully licensed — all actions allowed."
+        if is_complete
+        else (
+            f"Not fully licensed ({s.get('statusText') or 'see flags'}). Reading trees "
+            "works; building and analysis actions are blocked until activation."
+        )
+    )
+    return LicenseStatus(
+        available=True,
+        is_complete=is_complete,
+        is_trial=bool(s.get("isTrial")),
+        is_expired=bool(s.get("isExpired")),
+        is_not_activated=bool(s.get("isNotActivated")),
+        days_left=days_left,
+        status_text=s.get("statusText"),
+        actions_allowed=is_complete,
+        note=note,
     )
 
 
@@ -1649,6 +1695,7 @@ __all__ = [
     "get_tree",
     "import_precisiontree",
     "import_tree_json",
+    "license_status",
     "list_trees",
     "open_workbook",
     "read_sheet",

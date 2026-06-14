@@ -31,6 +31,12 @@ class ExcelNotRunningError(RuntimeError):
     """No running Excel instance could be attached."""
 
 
+class LicenseRequiredError(RuntimeError):
+    """A licence-gated action was attempted without a fully licensed
+    ModelChoice. Reading trees is unaffected; building/analysis actions need
+    a full licence."""
+
+
 class ModelChoiceBridge:
     """Attach to a running Excel and read ModelChoice trees from a
     workbook's very-hidden ``_MC_Store`` sheet."""
@@ -162,6 +168,55 @@ class ModelChoiceBridge:
         except Exception:
             pass  # fall back to xlwings' default attach
 
+    def license_status(self, workbook: str | None = None) -> dict[str, Any]:
+        """Read the ModelChoice add-in's licence state via the headless
+        ``MC_LicenseStatus_Auto`` command. Returns a dict with keys like
+        ``isComplete`` / ``isTrial`` / ``isExpired`` / ``isNotActivated`` /
+        ``daysLeft`` / ``statusText``. Returns ``{}`` if the command isn't
+        available (add-in not loaded, or older than this command) or Excel
+        couldn't run it — the caller decides how to treat an unknown state."""
+        try:
+            book = self._book(workbook)
+            raw = book.app.api.Run("MC_LicenseStatus_Auto")
+        except Exception:
+            return {}
+        if not isinstance(raw, str) or not raw.strip():
+            return {}
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _require_license(self, workbook: str | None = None) -> None:
+        """Gate a licence-bound ACTION on a FULL ModelChoice licence
+        (``isComplete``). Pure reads never call this. Fail-closed: if the
+        status can't be read (add-in missing/old/blocked), the action is
+        refused with an actionable message — building/analysis require a
+        licensed ModelChoice, reading does not."""
+        status = self.license_status(workbook)
+        if status.get("isComplete") is True:
+            return
+        if not status:
+            raise LicenseRequiredError(
+                "Could not verify the ModelChoice licence (is the add-in loaded "
+                "and up to date — i.e. does it provide MC_LicenseStatus_Auto?). "
+                "Building and analysis actions require a licensed ModelChoice; "
+                "reading trees does not."
+            )
+        if status.get("isTrial"):
+            state = "trial"
+        elif status.get("isExpired"):
+            state = "expired"
+        elif status.get("isNotActivated"):
+            state = "not activated"
+        else:
+            state = "unlicensed"
+        raise LicenseRequiredError(
+            f"This action requires a fully licensed ModelChoice (current: {state}). "
+            "Reading trees works without a licence; building and analysis do not."
+        )
+
     def read_store_raw(self, workbook: str | None = None) -> str:
         """Return the reassembled ``_MC_Store`` A1 payload, or '' if the
         sheet is absent."""
@@ -251,6 +306,7 @@ class ModelChoiceBridge:
         ModelChoice add-in to be loaded in Excel and a tree to be active.
         Raises ``ModelChoiceNotFoundError`` if the command produced no
         result sheet (add-in not loaded, or no active tree)."""
+        self._require_license(workbook)
         book = self._book(workbook)
         try:
             book.activate()
@@ -313,6 +369,7 @@ class ModelChoiceBridge:
                 f"Unknown utility function {function!r}. Choose from: "
                 f"{', '.join(sorted(set(self._UTILITY_FUNCTIONS)))}."
             )
+        self._require_license(workbook)
         book = self._book(workbook)
         try:
             book.activate()
@@ -366,6 +423,7 @@ class ModelChoiceBridge:
         ModelChoice add-in loaded with a tree open. Raises
         ``ModelChoiceNotFoundError`` if the command produced no result sheet
         (add-in not loaded, no active tree, or the chance node wasn't found)."""
+        self._require_license(workbook)
         book = self._book(workbook)
         try:
             book.activate()
@@ -412,6 +470,7 @@ class ModelChoiceBridge:
         the sheet and links each tree cell to its panel cell — then reads the
         panel block back. Requires the ModelChoice add-in loaded with a
         rendered tree. Returns ``{sheet, rows}``."""
+        self._require_license(workbook)
         book = self._book(workbook)
         try:
             book.activate()
@@ -451,6 +510,7 @@ class ModelChoiceBridge:
         weights, aggregation, and per-terminal scores, then re-renders. Requires
         the add-in loaded with the active tree built (a build that includes the
         MCDA command)."""
+        self._require_license(workbook)
         book = self._book(workbook)
         try:
             book.activate()
@@ -471,6 +531,7 @@ class ModelChoiceBridge:
         the active workbook — then reads the converted workbook's trees.
         Requires the add-in loaded with a build that includes the import
         command."""
+        self._require_license()
         xw = self._load_xw()
         app = xw.apps.active
         if app is None:
@@ -504,6 +565,7 @@ class ModelChoiceBridge:
         sheets it produced. Activates the workbook first; raises
         ``ModelChoiceNotFoundError`` if the command can't run (add-in not
         loaded, or no active tree)."""
+        self._require_license(workbook)
         book = self._book(workbook)
         try:
             book.activate()
@@ -529,6 +591,7 @@ class ModelChoiceBridge:
         columns) under a tree sheet name, creating the very-hidden store
         sheet if needed. Returns the sheet name used. The add-in is not
         required to store; call :meth:`render_tree` to draw it."""
+        self._require_license(workbook)
         book = self._book(workbook)
         raw = self.read_store_raw(workbook)
         trees = parse_store(raw) if raw else {}
@@ -571,6 +634,7 @@ class ModelChoiceBridge:
     def render_tree(self, sheet_name: str, workbook: str | None = None) -> None:
         """Draw a stored tree by name via ModelChoice's renderer
         (``MC_RenderStoredTree``). Requires the add-in loaded."""
+        self._require_license(workbook)
         book = self._book(workbook)
         try:
             book.activate()
@@ -600,6 +664,7 @@ class ModelChoiceBridge:
         Pure ``_MC_Store`` edit + render — no special add-in command beyond the
         existing MC_RenderStoredTree. ModelRisk (via modelrisk-mcp) then samples
         the formula during simulation."""
+        self._require_license(workbook)
         raw = self.read_store_raw(workbook)
         if not raw:
             raise ModelChoiceNotFoundError("Workbook has no ModelChoice tree store.")
