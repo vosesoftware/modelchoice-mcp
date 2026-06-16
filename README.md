@@ -42,13 +42,11 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 
 ## Install
 
-**One-click (Claude Desktop) — recommended:**
-1. Download **`modelchoice-mcp.mcpb`** from the [latest release](https://github.com/vosesoftware/modelchoice-mcp/releases/latest) and open it (or drag it onto Claude Desktop's **Settings → Extensions**).
-2. **Restart Claude Desktop.**
+**Recommended (works on every current Claude version):** `pip install modelchoice-mcp`, then add the server to Claude Desktop's `claude_desktop_config.json` (a `modelchoice-mcp` command entry, or `uvx modelchoice-mcp`) and **restart Claude Desktop**. Run standalone with `uv run python -m modelchoice_mcp` (stdio). (Excel + the ModelChoice add-in are still required for rendering trees.)
 
-The bundle ships the server as a standalone executable — no Python to install, no config to edit. (Excel + the ModelChoice add-in are still required for rendering trees.)
+**One-click `.mcpb` (Claude Desktop Extension):** download **`modelchoice-mcp.mcpb`** from the [latest release](https://github.com/vosesoftware/modelchoice-mcp/releases/latest), open it (Claude Desktop → **Settings → Extensions → Install Extension…**), then restart Claude. The bundle ships the server as a standalone exe — no Python, no config edit.
 
-**From PyPI / source:** `pip install modelchoice-mcp`, then `uv run python -m modelchoice_mcp` (stdio), or wire `modelchoice-mcp` into Claude Desktop like any MCP server.
+> ⚠️ **Known issue (Claude Desktop, latest Windows MSIX builds, e.g. 1.12603.x):** the Extensions installer can silently do nothing when you pick a `.mcpb` — no error, no install. This is a **Claude Desktop installer bug** (it fails before logging), not a problem with the bundle (it validates with `mcpb` and installs fine once the client is fixed). **Until Anthropic patches it, use the `pip install` + config path above.**
 
 ## How it works
 

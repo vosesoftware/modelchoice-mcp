@@ -15,6 +15,12 @@ All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
   read (add-in missing/old), actions are blocked with an actionable message.
   (Trial/expired users can read but not drive actions.) Needs the add-in build
   with `MC_LicenseStatus_Auto`.
+- **`.mcpb` now built with the official `mcpb` CLI** (`@anthropic-ai/mcpb`,
+  validates during pack) instead of a hand-rolled zip; plain-zip fallback when
+  node isn't present. README install section reworked: PyPI + config is the
+  recommended path; the `.mcpb` one-click carries a note that the **Claude
+  Desktop Extensions installer silently no-ops on the latest Windows MSIX builds
+  (a client bug, not the bundle)** — use `pip install` until Anthropic patches it.
 
 ## 0.0.28
 - **One-click install: Claude Desktop Extension (`.mcpb`)** — the release now
