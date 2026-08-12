@@ -7,11 +7,11 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Vose Software" }]
 dependencies = [
-    # Upper bound is load-bearing. uv.lock is gitignored, so CI has no pins and
-    # `uv sync` re-resolves these floors on every run - an upstream major release
-    # lands in CI the day it ships. mcp 2.0 moved `mcp.server.fastmcp`, which broke
-    # mypy across every @mcp.tool in the package on an unchanged main. Widen this
-    # deliberately, with a migration, not by accident.
+    # The upper bound is for people INSTALLING the package: uv.lock pins exact
+    # versions for this repo's own CI, but a `pip install modelchoice-mcp` resolves
+    # against these constraints alone. mcp 2.0 moved `mcp.server.fastmcp`, so an
+    # uncapped floor hands end users a build that cannot import its own server.
+    # Widen this deliberately, with a migration, not by accident.
     "mcp>=1.2.0,<2",
     "pydantic>=2.0",
     "xlwings>=0.30",

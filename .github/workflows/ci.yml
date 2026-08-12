@@ -22,8 +22,13 @@ jobs:
           enable-cache: true
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
-      - name: Sync (with dev extras)
-        run: uv sync --extra dev
+      # --locked is what stops CI drifting. Without it `uv sync` silently re-resolves
+      # whenever uv.lock disagrees with pyproject.toml, so an upstream major release
+      # lands in CI the day it ships (mcp 2.0.0 broke an unchanged main this way).
+      # With it, a stale lock fails the build with a clear message instead — re-run
+      # `uv lock` and commit the result.
+      - name: Sync (with dev extras, exact locked versions)
+        run: uv sync --extra dev --locked
       - name: Ruff
         run: uv run ruff check src tests
       - name: Mypy
