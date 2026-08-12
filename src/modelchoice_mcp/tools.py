@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from pydantic import Field
 
+from modelchoice_mcp import __version__
 from modelchoice_mcp.bridge import ModelChoiceBridge
 from modelchoice_mcp.schemas import (
     AnalysisRun,
@@ -24,9 +26,11 @@ from modelchoice_mcp.schemas import (
     EditOp,
     EviiResult,
     EvpiResult,
+    Generator,
     ImportResult,
     InputDistributionResult,
     KeyValue,
+    LicenseStatus,
     McdaBuildResult,
     McdaSpec,
     NodeDiff,
@@ -74,6 +78,21 @@ _ANALYSES: dict[str, str] = {
 }
 
 _bridge: ModelChoiceBridge | None = None
+
+# Fixed brand tokens for the export provenance stamp. Never abbreviated to a bare
+# "ModelChoice" and never localised - the compound form is the whole point.
+_GENERATOR_PRODUCT = "ModelChoice by Vose Software"
+_GENERATOR_URL = "vosesoftware.com/modelchoice"
+
+
+def _generator() -> Generator:
+    """Provenance stamp for an export, so it survives the round trip through git."""
+    return Generator(
+        product=_GENERATOR_PRODUCT,
+        version=__version__,
+        exported_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        url=_GENERATOR_URL,
+    )
 
 
 def get_bridge() -> ModelChoiceBridge:
@@ -570,6 +589,51 @@ def open_workbook(
 
 @mcp.tool(
     description=(
+        "ModelChoice: Report the ModelChoice add-in's licence state (fully "
+        "licensed / trial / expired / not activated). Building and analysis "
+        "ACTIONS require a FULL licence; reading trees works regardless. Use "
+        "this to explain why an action was refused. Read-only."
+    )
+)
+def license_status(workbook_name: str | None = None) -> LicenseStatus:
+    s = get_bridge().license_status(workbook_name)
+    if not s:
+        return LicenseStatus(
+            available=False,
+            is_complete=False,
+            actions_allowed=False,
+            note=(
+                "Could not read the licence status — the ModelChoice add-in isn't "
+                "loaded, or is older than the MC_LicenseStatus_Auto command. "
+                "Building/analysis actions are blocked until a licensed add-in reports in."
+            ),
+        )
+    is_complete = bool(s.get("isComplete"))
+    days = s.get("daysLeft")
+    days_left = int(days) if isinstance(days, (int, float)) and not isinstance(days, bool) else None
+    note = (
+        "Fully licensed — all actions allowed."
+        if is_complete
+        else (
+            f"Not fully licensed ({s.get('statusText') or 'see flags'}). Reading trees "
+            "works; building and analysis actions are blocked until activation."
+        )
+    )
+    return LicenseStatus(
+        available=True,
+        is_complete=is_complete,
+        is_trial=bool(s.get("isTrial")),
+        is_expired=bool(s.get("isExpired")),
+        is_not_activated=bool(s.get("isNotActivated")),
+        days_left=days_left,
+        status_text=s.get("statusText"),
+        actions_allowed=is_complete,
+        note=note,
+    )
+
+
+@mcp.tool(
+    description=(
         "ModelChoice: Close an open workbook by file name. By DEFAULT unsaved "
         "changes are DISCARDED (save=False) — pass save=True to write them "
         "first. The counterpart to open_workbook. Raises if Excel isn't running "
@@ -673,7 +737,10 @@ def get_tree(
         "ModelChoice: Export a tree's raw ModelChoice model JSON — for saving "
         "to a file, sharing, version control, or re-importing elsewhere with "
         "import_tree_json. Read-only. Pass tree_name to pick a tree, else the "
-        "first/active one."
+        "first/active one. The result carries a 'generator' field (product, "
+        "version, export timestamp) alongside the model JSON, so provenance "
+        "survives the round trip; it sits outside model_json and is ignored on "
+        "re-import."
     )
 )
 def export_tree_json(
@@ -695,6 +762,7 @@ def export_tree_json(
         model_name=t.model_name,
         node_count=len(t.nodes),
         model_json=raw,
+        generator=_generator(),
     )
 
 
@@ -1649,6 +1717,7 @@ __all__ = [
     "get_tree",
     "import_precisiontree",
     "import_tree_json",
+    "license_status",
     "list_trees",
     "open_workbook",
     "read_sheet",

@@ -1,13 +1,18 @@
 [project]
 name = "modelchoice-mcp"
-version = "0.0.28"
+version = "0.0.30"
 description = "An open Model Context Protocol server for Vose Software's ModelChoice decision-tree add-in for Excel."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Vose Software" }]
 dependencies = [
-    "mcp>=1.2.0",
+    # Upper bound is load-bearing. uv.lock is gitignored, so CI has no pins and
+    # `uv sync` re-resolves these floors on every run - an upstream major release
+    # lands in CI the day it ships. mcp 2.0 moved `mcp.server.fastmcp`, which broke
+    # mypy across every @mcp.tool in the package on an unchanged main. Widen this
+    # deliberately, with a migration, not by accident.
+    "mcp>=1.2.0,<2",
     "pydantic>=2.0",
     "xlwings>=0.30",
 ]

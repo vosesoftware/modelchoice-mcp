@@ -314,12 +314,47 @@ class OpenWorkbookResult(BaseModel):
     note: str
 
 
+class LicenseStatus(BaseModel):
+    """ModelChoice licence state read from the add-in (MC_LicenseStatus_Auto).
+    Building / analysis actions require a FULL licence (`is_complete`);
+    reading trees works regardless."""
+
+    available: bool = Field(
+        description="True if the add-in reported a status (loaded + has the command)."
+    )
+    is_complete: bool = Field(description="Fully licensed — actions are allowed.")
+    is_trial: bool = False
+    is_expired: bool = False
+    is_not_activated: bool = False
+    days_left: int | None = None
+    status_text: str | None = None
+    actions_allowed: bool = Field(
+        description="Whether licence-gated actions (build/analysis) are permitted."
+    )
+    note: str
+
+
 class CloseWorkbookResult(BaseModel):
     """Outcome of closing an open workbook."""
 
     workbook: str = Field(description="The workbook that was closed.")
     saved: bool = Field(description="Whether it was saved before closing.")
     note: str
+
+
+class Generator(BaseModel):
+    """What produced an export, so provenance survives the round trip.
+
+    An exported tree usually ends up in version control, a ticket, or another
+    person's hands, where the fact that ModelChoice produced it is otherwise
+    lost. The product and company names are fixed brand tokens and are never
+    localised or abbreviated.
+    """
+
+    product: str = Field(description="Product name, always 'ModelChoice by Vose Software'.")
+    version: str = Field(description="Version of the exporting MCP server.")
+    exported_at: str = Field(description="UTC export timestamp, ISO 8601.")
+    url: str = Field(description="Product home page.")
 
 
 class TreeExport(BaseModel):
@@ -330,6 +365,9 @@ class TreeExport(BaseModel):
     node_count: int
     model_json: str = Field(
         description="The raw ModelChoice model JSON (round-trips via import_tree_json)."
+    )
+    generator: Generator = Field(
+        description="What produced this export. Not part of the model; import_tree_json ignores it."
     )
 
 

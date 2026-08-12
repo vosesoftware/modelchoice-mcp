@@ -3,6 +3,34 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.30
+- **`export_tree_json` now carries a `generator` field (AB#3123)** — product
+  (`ModelChoice by Vose Software`), server version, UTC export timestamp and the
+  product URL, so an exported tree stays attributable once it lands in version
+  control, a ticket, or someone else's repository. It sits *alongside*
+  `model_json`, never inside it: `model_json` still round-trips byte-identically
+  through `import_tree_json`. Part of the ModelChoice output-branding work
+  (Feature AB#3118).
+
+## 0.0.29
+- **Licence gate (AB#2659)** — building and analysis ACTIONS now require a fully
+  licensed ModelChoice. The bridge reads the add-in's licence state via the new
+  headless `MC_LicenseStatus_Auto` and refuses actions (build/edit commit,
+  build_mcda, control panel, set_input_distribution, run_utility / evii / evpi /
+  risk_profile / decision_report / robustness / sensitivity / analysis, import)
+  unless `isComplete` (full licence). **Reading is unaffected** — list/get/roll_up/
+  verify/scenarios/export and open/close workbook work regardless. New read-only
+  **`license_status`** tool reports the state. Fail-closed: if the status can't be
+  read (add-in missing/old), actions are blocked with an actionable message.
+  (Trial/expired users can read but not drive actions.) Needs the add-in build
+  with `MC_LicenseStatus_Auto`.
+- **`.mcpb` now built with the official `mcpb` CLI** (`@anthropic-ai/mcpb`,
+  validates during pack) instead of a hand-rolled zip; plain-zip fallback when
+  node isn't present. README install section reworked: PyPI + config is the
+  recommended path; the `.mcpb` one-click carries a note that the **Claude
+  Desktop Extensions installer silently no-ops on the latest Windows MSIX builds
+  (a client bug, not the bundle)** — use `pip install` until Anthropic patches it.
+
 ## 0.0.28
 - **One-click install: Claude Desktop Extension (`.mcpb`)** — the release now
   also builds a standalone Windows `.exe` (new PyInstaller spec) and wraps it in

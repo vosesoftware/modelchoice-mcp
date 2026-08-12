@@ -4,7 +4,7 @@
 
 A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): where that server brings Monte Carlo risk modelling into a conversation, this one brings **decision analysis** — building, reading, rolling back, and analysing decision trees in Excel.
 
-> **Status: `0.0.28` — Phase 3 (build + drive).** 24 tools: build_tree / build_mcda / edit_tree (incl. add/remove options & outcomes) / set_input_distribution (put a Vose distribution on an input) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
+> **Status: `0.0.30` — Phase 3 (build + drive).** 25 tools: build_tree / build_mcda / edit_tree (incl. add/remove options & outcomes) / set_input_distribution (put a Vose distribution on an input) / build_control_panel / export_tree_json / import_tree_json / import_precisiontree, read + roll + verify, run_scenarios (what-if comparison), plus run_evpi / run_evii / run_risk_profile / run_robustness / run_sensitivity / run_decision_report (strategy/policy/brief/mcda/force-to-outcome/two-way) / run_analysis / read_sheet over ModelChoice's headless commands.
 
 ## Tools
 
@@ -19,6 +19,7 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 | `import_precisiontree` | Import a PrecisionTree workbook (.xls/.xlsx) into ModelChoice — converts a copy (original untouched). Drives `MC_ImportPrecisionTree_Auto`. |
 | `open_workbook` | **Open a workbook (.xlsx) from disk** in the running Excel so the other tools can act on it. Reports its sheets + any ModelChoice tree sheets; reuses an already-open workbook of the same name. |
 | `close_workbook` | **Close an open workbook** by file name (counterpart to `open_workbook`). Discards unsaved changes by default; pass `save=True` to save first. |
+| `license_status` | **Report the ModelChoice licence state** (licensed / trial / expired / not activated). Building and analysis **actions require a full licence**; reading trees works regardless. Read-only. |
 | `list_trees` | List the decision trees in a workbook with node-type counts. |
 | `get_tree` | Full structure of one tree — decision / chance / terminal nodes, branches, probabilities, values. |
 | `roll_up` | Roll the tree back to its expected values and **optimal policy** — the decision recommendation, in plain English. |
@@ -41,13 +42,11 @@ A sibling to [`modelrisk-mcp`](https://github.com/vosesoftware/modelrisk-mcp): w
 
 ## Install
 
-**One-click (Claude Desktop) — recommended:**
-1. Download **`modelchoice-mcp.mcpb`** from the [latest release](https://github.com/vosesoftware/modelchoice-mcp/releases/latest) and open it (or drag it onto Claude Desktop's **Settings → Extensions**).
-2. **Restart Claude Desktop.**
+**Recommended (works on every current Claude version):** `pip install modelchoice-mcp`, then add the server to Claude Desktop's `claude_desktop_config.json` (a `modelchoice-mcp` command entry, or `uvx modelchoice-mcp`) and **restart Claude Desktop**. Run standalone with `uv run python -m modelchoice_mcp` (stdio). (Excel + the ModelChoice add-in are still required for rendering trees.)
 
-The bundle ships the server as a standalone executable — no Python to install, no config to edit. (Excel + the ModelChoice add-in are still required for rendering trees.)
+**One-click `.mcpb` (Claude Desktop Extension):** download **`modelchoice-mcp.mcpb`** from the [latest release](https://github.com/vosesoftware/modelchoice-mcp/releases/latest), open it (Claude Desktop → **Settings → Extensions → Install Extension…**), then restart Claude. The bundle ships the server as a standalone exe — no Python, no config edit.
 
-**From PyPI / source:** `pip install modelchoice-mcp`, then `uv run python -m modelchoice_mcp` (stdio), or wire `modelchoice-mcp` into Claude Desktop like any MCP server.
+> ⚠️ **Known issue (Claude Desktop, latest Windows MSIX builds, e.g. 1.12603.x):** the Extensions installer can silently do nothing when you pick a `.mcpb` — no error, no install. This is a **Claude Desktop installer bug** (it fails before logging), not a problem with the bundle (it validates with `mcpb` and installs fine once the client is fixed). **Until Anthropic patches it, use the `pip install` + config path above.**
 
 ## How it works
 
