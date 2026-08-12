@@ -4,6 +4,14 @@ All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
 ## 0.0.30
+- **CI stops drifting with upstream releases.** `uv.lock` is now committed (it was in
+  `.gitignore`), and CI syncs with `--locked`. Previously CI had no pins at all: it
+  re-resolved the open floors in `pyproject.toml` on every run, so a new upstream major
+  landed the day it shipped — `mcp 2.0.0` moved `mcp.server.fastmcp` and broke `mypy`
+  across every `@mcp.tool` on an **unchanged `main`**. `mcp` is also capped to `<2` for
+  people installing from PyPI, who resolve against the constraints rather than the lock.
+  Editing `pyproject.toml` now requires re-running `uv lock` and committing the result;
+  CI fails with a clear message if you forget, instead of silently upgrading you.
 - **`export_tree_json` now carries a `generator` field (AB#3123)** — product
   (`ModelChoice by Vose Software`), server version, UTC export timestamp and the
   product URL, so an exported tree stays attributable once it lands in version
