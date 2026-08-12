@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from pydantic import Field
 
+from modelchoice_mcp import __version__
 from modelchoice_mcp.bridge import ModelChoiceBridge
 from modelchoice_mcp.schemas import (
     AnalysisRun,
@@ -24,6 +26,7 @@ from modelchoice_mcp.schemas import (
     EditOp,
     EviiResult,
     EvpiResult,
+    Generator,
     ImportResult,
     InputDistributionResult,
     KeyValue,
@@ -75,6 +78,21 @@ _ANALYSES: dict[str, str] = {
 }
 
 _bridge: ModelChoiceBridge | None = None
+
+# Fixed brand tokens for the export provenance stamp. Never abbreviated to a bare
+# "ModelChoice" and never localised - the compound form is the whole point.
+_GENERATOR_PRODUCT = "ModelChoice by Vose Software"
+_GENERATOR_URL = "vosesoftware.com/modelchoice"
+
+
+def _generator() -> Generator:
+    """Provenance stamp for an export, so it survives the round trip through git."""
+    return Generator(
+        product=_GENERATOR_PRODUCT,
+        version=__version__,
+        exported_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        url=_GENERATOR_URL,
+    )
 
 
 def get_bridge() -> ModelChoiceBridge:
@@ -719,7 +737,10 @@ def get_tree(
         "ModelChoice: Export a tree's raw ModelChoice model JSON — for saving "
         "to a file, sharing, version control, or re-importing elsewhere with "
         "import_tree_json. Read-only. Pass tree_name to pick a tree, else the "
-        "first/active one."
+        "first/active one. The result carries a 'generator' field (product, "
+        "version, export timestamp) alongside the model JSON, so provenance "
+        "survives the round trip; it sits outside model_json and is ignored on "
+        "re-import."
     )
 )
 def export_tree_json(
@@ -741,6 +762,7 @@ def export_tree_json(
         model_name=t.model_name,
         node_count=len(t.nodes),
         model_json=raw,
+        generator=_generator(),
     )
 
 

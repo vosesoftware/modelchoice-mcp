@@ -3,6 +3,15 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.30
+- **`export_tree_json` now carries a `generator` field (AB#3123)** — product
+  (`ModelChoice by Vose Software`), server version, UTC export timestamp and the
+  product URL, so an exported tree stays attributable once it lands in version
+  control, a ticket, or someone else's repository. It sits *alongside*
+  `model_json`, never inside it: `model_json` still round-trips byte-identically
+  through `import_tree_json`. Part of the ModelChoice output-branding work
+  (Feature AB#3118).
+
 ## 0.0.29
 - **Licence gate (AB#2659)** — building and analysis ACTIONS now require a fully
   licensed ModelChoice. The bridge reads the add-in's licence state via the new

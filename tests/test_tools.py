@@ -588,6 +588,33 @@ def test_export_tree_json(bridge: _FakeBridge) -> None:
     assert out.model_json == _MODEL
 
 
+def test_export_tree_json_carries_generator_provenance(bridge: _FakeBridge) -> None:
+    """The export stamp is what survives the round trip through version control."""
+    from datetime import datetime
+
+    from modelchoice_mcp import __version__
+
+    gen = tools.export_tree_json().generator
+
+    # Compound brand form, never a bare "ModelChoice".
+    assert gen.product == "ModelChoice by Vose Software"
+    assert gen.version == __version__
+    assert gen.url == "vosesoftware.com/modelchoice"
+
+    # Parseable ISO 8601 with an explicit offset — a naive timestamp in someone
+    # else's repository is not provenance.
+    stamped = datetime.fromisoformat(gen.exported_at)
+    assert stamped.tzinfo is not None
+
+
+def test_export_generator_is_not_smuggled_into_the_model(bridge: _FakeBridge) -> None:
+    """model_json must round-trip byte-identically: the stamp sits beside it, not in it."""
+    out = tools.export_tree_json()
+    assert out.model_json == _MODEL
+    assert "generator" not in out.model_json
+    assert tools.import_tree_json(out.model_json, dry_run=True).node_count == out.node_count
+
+
 def test_import_tree_json_roundtrip() -> None:
     fake = _FakeBridge({"MC_Tree_1": _MODEL})
     tools.set_bridge_for_testing(fake)  # type: ignore[arg-type]
