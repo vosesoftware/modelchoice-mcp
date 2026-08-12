@@ -1,18 +1,24 @@
-"""FastMCP server entrypoint.
+"""MCP server entrypoint.
 
 Constructs the ``mcp`` instance and triggers tool registration by
 importing ``modelchoice_mcp.tools`` (the tools attach via the
-``@mcp.tool`` decorator side-effect). Read-only in Phase 0/1.
+``@mcp.tool`` decorator side-effect).
+
+The high-level server class was called ``FastMCP`` and lived in
+``mcp.server.fastmcp`` up to mcp 1.x; mcp 2.0 removed that module and renamed the
+class to :class:`~mcp.server.MCPServer`. The decorator API is unchanged, so the
+rename is the whole migration for this module.
 """
 
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from modelchoice_mcp import __version__
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="modelchoice-mcp",
+    version=__version__,
     instructions=(
         "ModelChoice MCP exposes Vose Software's ModelChoice decision-tree "
         "add-in for Excel. It reads decision trees stored in a workbook and "

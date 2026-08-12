@@ -1,6 +1,6 @@
 # PyInstaller spec for ModelChoice MCP Server.
 #
-# Produces a single-file Windows .exe that boots the FastMCP server over
+# Produces a single-file Windows .exe that boots the MCP server over
 # stdio. Tool/prompt/resource modules are only pulled in via side-effect
 # imports in server.py, so they're listed as hidden imports to keep
 # PyInstaller's static analyser from stripping them. The COM modules

@@ -1,7 +1,7 @@
 """Curated decision-analysis knowledge, exposed as MCP resources.
 
 Importing this module side-effects the ``@mcp.resource`` registrations
-into the shared FastMCP instance, like the tools and prompts modules.
+into the shared MCPServer instance, like the tools and prompts modules.
 These give the model grounded guidance on *how* to use the ModelChoice
 tools well — what each analysis answers, how rollback works, and the
 common modelling pitfalls — without it having to guess.

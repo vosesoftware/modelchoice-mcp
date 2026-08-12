@@ -31,9 +31,10 @@ def main() -> None:
     if transport == "stdio":
         mcp.run(transport="stdio")
     else:
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-        mcp.run(transport=transport)
+        # mcp 2.0 takes host/port as run() keyword arguments, forwarded to
+        # run_streamable_http_async / run_sse_async. Under 1.x these were set by
+        # mutating `mcp.settings` before calling run().
+        mcp.run(transport=transport, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
