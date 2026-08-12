@@ -1,7 +1,7 @@
 """Guided prompts for ModelChoice MCP.
 
 Importing this module side-effects the ``@mcp.prompt`` registrations
-into the shared FastMCP instance, like the tools module.
+into the shared MCPServer instance, like the tools module.
 """
 
 from __future__ import annotations

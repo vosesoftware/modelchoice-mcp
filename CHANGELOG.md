@@ -3,6 +3,19 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## 0.0.31
+- **Migrated to the mcp 2.0 SDK (AB#3134).** mcp 2.0 removed `mcp.server.fastmcp` and
+  renamed the high-level server class `FastMCP` → **`MCPServer`** (`from mcp.server import
+  MCPServer`). The `@mcp.tool` / `@mcp.resource` / `@mcp.prompt` decorators are unchanged
+  and still return the plain function, so all 25 tools, 4 resources and 2 prompts register
+  exactly as before — verified name-for-name against the 1.x baseline. The dependency is
+  now `mcp>=2,<3`; the major-version cap stays, deliberately.
+  - **HTTP transports:** host and port are now `run()` keyword arguments
+    (`mcp.run(transport=..., host=..., port=...)`) instead of mutating `mcp.settings`
+    beforehand. `--transport`, `--host` and `--port` behave as before.
+  - The server now reports its own version in `serverInfo` — `MCPServer` takes a `version`
+    argument, which `FastMCP` had no equivalent for.
+
 ## 0.0.30
 - **CI stops drifting with upstream releases.** `uv.lock` is now committed (it was in
   `.gitignore`), and CI syncs with `--locked`. Previously CI had no pins at all: it
