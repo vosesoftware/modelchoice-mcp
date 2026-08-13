@@ -80,7 +80,15 @@ jobs:
           path: dist/modelchoice-mcp.mcpb
 
   publish-pypi:
-    needs: build
+    # Gated on build-windows-exe as well as build, even though it consumes only
+    # the `dist` artifact. Publishing to PyPI is the one irreversible step in
+    # this workflow - a version number can never be reused - so it must run
+    # after every verification, not alongside them. With `needs: build` alone,
+    # build-windows-exe raced the publish and a packaging break (its MCP
+    # initialize handshake failing) still shipped. Costs a few minutes; buys
+    # the ability to fix a bad build by deleting a tag instead of burning a
+    # version. (AB#3142)
+    needs: [build, build-windows-exe]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

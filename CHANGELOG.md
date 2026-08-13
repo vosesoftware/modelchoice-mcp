@@ -3,6 +3,16 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## Unreleased
+- **The PyPI publish now waits for the Windows exe verification (AB#3142).** `publish-pypi`
+  depended on `build` alone, so `build-windows-exe` — which packs the single-file exe and
+  asserts it answers an MCP `initialize` handshake — raced the publish instead of gating
+  it, and a packaging break would still have reached PyPI. Publishing is the one
+  irreversible step in the workflow (a version number can never be reused), so it now runs
+  after every verification. Costs a few minutes per release; buys the ability to fix a bad
+  build by deleting a tag rather than burning a version. Release-workflow only — no change
+  to the package.
+
 ## 0.0.31
 - **Migrated to the mcp 2.0 SDK (AB#3134).** mcp 2.0 removed `mcp.server.fastmcp` and
   renamed the high-level server class `FastMCP` → **`MCPServer`** (`from mcp.server import
