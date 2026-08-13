@@ -25,6 +25,40 @@ jobs:
         uses: astral-sh/setup-uv@v5
       - name: Build sdist + wheel
         run: uv build
+
+      # The wheel is what PyPI serves and what `pip install` gives users, yet
+      # nothing installed it before publishing: the exe check gates the
+      # PyInstaller binary built from source (AB#3142), which is a different
+      # artifact with different dependency resolution. A wheel-only fault - a
+      # missing packages entry, a bad hatch build glob, an undeclared dependency
+      # - would have shipped. publish-pypi needs this job, so a failure here
+      # stops the irreversible step. (AB#3143)
+      - name: Smoke-test the built wheel
+        run: |
+          python -m venv /tmp/wheelcheck
+          /tmp/wheelcheck/bin/python -m pip install --quiet dist/*.whl
+          # Run from outside the repo so the import resolves to the INSTALLED
+          # package and can never fall through to ./src.
+          cd /tmp
+          INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0.1"}}}'
+          OUT=$(echo "$INIT" | timeout 30 /tmp/wheelcheck/bin/python -m modelchoice_mcp 2>&1 || true)
+          echo "$OUT"
+          echo "$OUT" | grep -q '"serverInfo"' \
+            || { echo "::error::installed wheel did not return a serverInfo block"; exit 1; }
+          echo "$OUT" | grep -q '"modelchoice-mcp"' \
+            || { echo "::error::installed wheel did not identify as modelchoice-mcp"; exit 1; }
+          # A tag-driven release must never publish a wheel whose version disagrees
+          # with the tag: that mistake costs a PyPI version number permanently.
+          EXPECTED="${GITHUB_REF_NAME#v}"
+          ACTUAL=$(echo "$OUT" | /tmp/wheelcheck/bin/python -c \
+            "import sys, json; print(json.loads(sys.stdin.readline())['result']['serverInfo']['version'])") \
+            || { echo "::error::could not parse serverInfo from the wheel's initialize response"; exit 1; }
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::wheel reports version $ACTUAL but the tag is $GITHUB_REF_NAME (expected $EXPECTED)"
+            exit 1
+          fi
+          echo "wheel OK: installs clean, answers initialize, reports $ACTUAL"
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist
