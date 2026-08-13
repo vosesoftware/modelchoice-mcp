@@ -4,6 +4,14 @@ All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
 ## Unreleased
+- **The wheel is now installed and booted before it is published (AB#3143).** The wheel is
+  what PyPI serves and what `pip install` gives you, but nothing ever installed it — the exe
+  check gates the PyInstaller binary built from source, a different artifact with different
+  dependency resolution, so a wheel-only fault (a missing `packages` entry, a bad hatch
+  build glob, an undeclared dependency) would have shipped. The `build` job now installs the
+  freshly-built wheel into a clean virtualenv, makes it answer a real MCP `initialize`
+  handshake, and asserts the version it reports matches the tag being released — so a
+  forgotten version bump can no longer burn a PyPI version number.
 - **The PyPI publish now waits for the Windows exe verification (AB#3142).** `publish-pypi`
   depended on `build` alone, so `build-windows-exe` — which packs the single-file exe and
   asserts it answers an MCP `initialize` handshake — raced the publish instead of gating
