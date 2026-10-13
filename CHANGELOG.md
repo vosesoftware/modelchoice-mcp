@@ -3,7 +3,18 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
-## Unreleased
+## 0.0.32
+- **An idle server could use a full CPU core after the PC slept, until it was killed.** On
+  Windows, asyncio's event loop wakes itself through a pair of connected loopback sockets,
+  and on some PCs Windows tears idle loopback connections down across sleep and wake. When
+  the loop's read on that pair ended at end of file, asyncio started the read again on the
+  dead socket; it ended at once, and so on forever
+  ([CPython gh-156333](https://github.com/python/cpython/issues/156333), open). Reported on
+  13 October 2026 for every modelchoice-mcp and modelrisk-mcp process on one PC, after
+  every sleep. The server now replaces the socket pair and reads from the new one, at most
+  once a second, and logs a warning when it does. When the read ended in an error instead (a
+  reset or aborted read), asyncio stopped reading and the server ignored requests and did
+  not exit when its client closed stdin; that case now replaces the pair too.
 - **The wheel is now installed and booted before it is published (AB#3143).** The wheel is
   what PyPI serves and what `pip install` gives you, but nothing ever installed it — the exe
   check gates the PyInstaller binary built from source, a different artifact with different
