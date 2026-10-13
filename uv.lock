@@ -589,7 +589,7 @@ wheels = [
 
 [[package]]
 name = "modelchoice-mcp"
-version = "0.0.31"
+version = "0.0.32"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },

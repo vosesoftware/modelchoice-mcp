@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 from typing import Literal, cast
 
+from modelchoice_mcp import selfpipe_guard
 from modelchoice_mcp.server import mcp
 
 Transport = Literal["stdio", "streamable-http", "sse"]
@@ -26,6 +27,9 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
+    # Before any event loop exists. Windows can kill the loop's self-pipe on
+    # sleep and wake, after which an idle server spins a CPU core for good.
+    selfpipe_guard.install()
 
     transport = cast(Transport, args.transport)
     if transport == "stdio":
