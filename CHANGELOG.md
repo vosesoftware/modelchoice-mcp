@@ -3,6 +3,13 @@
 All notable changes to `modelchoice-mcp`. Versions are tag-driven; pushing a
 `vX.Y.Z` tag publishes to PyPI via the release workflow.
 
+## Unreleased
+- **CI now runs the tests on Windows too.** The server runs on Windows, and the self-pipe
+  guard's tests (0.0.32) need Windows' event loop, so CI on Ubuntu skipped them. CI now runs
+  the suite on `windows-latest` with Python 3.11 and 3.12, and with 3.13, the Python inside
+  the release exe, beside the Ubuntu jobs. A failure on one OS no longer cancels the other's
+  jobs. CI only — no change to the package.
+
 ## 0.0.32
 - **An idle server could use a full CPU core after the PC slept, until it was killed.** On
   Windows, asyncio's event loop wakes itself through a pair of connected loopback sockets,
