@@ -10,10 +10,19 @@ permissions: {}
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      # A failure on one OS should not cancel the other's results.
+      fail-fast: false
       matrix:
+        # The server runs on Windows, and some tests (the self-pipe guard's)
+        # can only run there: on Ubuntu they are skipped.
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.11", "3.12"]
+        include:
+          # The Python inside the release .exe.
+          - os: windows-latest
+            python-version: "3.13"
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
